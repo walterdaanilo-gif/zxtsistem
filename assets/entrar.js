@@ -17,10 +17,10 @@
   if (params.get("modo") === "cadastro" || indicacao) aba("cadastro");
 
   // modalidades e textos legais vindos do banco
-  sb.from("modalidades").select("slug,nome").eq("ativa", true).order("ordem").then(function (r) {
-    $("#c-mods").innerHTML = (r.data || []).map(function (m) {
-      return '<label class="opcao"><input type="checkbox" name="mod" value="' + m.slug + '"><span>' + U.esc(m.nome) + "</span></label>";
-    }).join("");
+  // planos e turmas: escolher o plano libera a escolha das turmas
+  var picker = null;
+  carregarDadosPlano().then(function (dp) {
+    picker = PlanoPicker($("#c-plano"), { planos: dp.planos, turmas: dp.turmas, modalidades: dp.modalidades, planoId: params.get("plano") });
   });
   sb.from("academia_config").select("termo_responsabilidade,politica_privacidade,versao_termos").single().then(function (r) {
     if (r.data) textos = r.data;
@@ -73,7 +73,7 @@
       nome: $("#c-nome").value.trim(), email: $("#c-email").value.trim(), whats: $("#c-whats").value.trim(),
       nasc: $("#c-nasc").value, cpf: $("#c-cpf").value.trim(), senha: $("#c-senha").value,
       emergNome: $("#c-emerg-nome").value.trim(), emergTel: $("#c-emerg-tel").value.trim(), saude: $("#c-saude").value.trim(),
-      mods: U.$$('input[name="mod"]:checked').map(function (i) { return i.value; })
+      escolha: picker ? picker.valor() : { plano: null, turmas: [] }
     };
     var idade = U.idade(d.nasc), menor = idade !== null && idade < 18;
     if (d.nome.split(" ").length < 2) falta.push("nome completo");
@@ -82,7 +82,8 @@
     if (!d.nasc || idade < 3 || idade > 100) falta.push("data de nascimento");
     if (!U.cpfValido(d.cpf)) falta.push("CPF válido");
     if (d.senha.length < 8) falta.push("senha com 8 caracteres");
-    if (!d.mods.length) falta.push("pelo menos uma modalidade");
+    var erroPlano = picker ? picker.erro() : "aguarde os planos carregarem";
+    if (erroPlano) falta.push(erroPlano.replace(/\.$/, "").toLowerCase());
     if (!d.emergNome || U.soDigitos(d.emergTel).length < 10) falta.push("contato de emergência");
     if (menor) {
       if (!$("#r-nome").value.trim()) falta.push("nome do responsável");
@@ -108,7 +109,7 @@
         var agora = new Date().toISOString();
         var perfil = {
           nome: d.nome, whatsapp: d.whats, data_nascimento: d.nasc, cpf: U.soDigitos(d.cpf),
-          modalidades_interesse: d.mods, contato_emergencia_nome: d.emergNome, contato_emergencia_telefone: d.emergTel,
+          modalidades_interesse: picker.modalidadesSlugs(), plano_escolhido_id: d.escolha.plano, turmas_escolhidas: d.escolha.turmas,contato_emergencia_nome: d.emergNome, contato_emergencia_telefone: d.emergTel,
           saude_obs: d.saude || null, aceite_termo_em: agora, aceite_privacidade_em: agora,
           versao_termos_aceita: textos.versao_termos || 1
         };
