@@ -22,7 +22,7 @@
   var MENUS = {
     aluno: [["inicio", "Início", "casa"], ["agenda", "Agenda", "agenda"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["graduacao", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
     professor: [["chamada", "Chamada", "chamada"], ["alunos", "Alunos", "grupo"], ["perfil", "Perfil", "perfil"]],
-    admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["qr", "QR recepção", "qr"]]
+    admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"]]
   };
   var NOME_PAPEL = { aluno: "Aluno", professor: "Professor", admin: "Administração" };
 
@@ -535,7 +535,7 @@
         l("Observações do professor", p.observacoes_professor) + l("Papéis", papeis.join(", "));
       if (admin) html += '<div class="campo" style="margin-top:12px"><label for="f-st">Mudar status</label><select class="sel" id="f-st">' +
         ["ativo", "trancado", "inativo", "pendente", "recusado"].map(function (s) { return '<option' + (s === p.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select></div>";
-      var bots = [["Fechar", null, "claro"], ["Observação", function () { observacao(id, p.nome); }, "claro"]];
+      var bots = [["Fechar", null, "claro"], ["Graduação", function () { graduacaoAluno(id, p); }, "verde"], ["Observação", function () { observacao(id, p.nome); }, "claro"]];
       if (admin) {
         bots.push([papeis.indexOf("professor") >= 0 ? "Tirar de professor" : "Tornar professor", function () {
           var q = papeis.indexOf("professor") >= 0 ? sb.from("user_roles").delete().eq("user_id", id).eq("papel", "professor") : sb.from("user_roles").insert({ user_id: id, papel: "professor" });
@@ -768,6 +768,181 @@
         sb.from("qr_tokens").update({ expira_em: new Date().toISOString() }).eq("token", t.token).then(function () {
           sb.from("qr_tokens").insert({ criado_por: S.user.id, expira_em: new Date(Date.now() + 30 * 864e5).toISOString() }).then(function () { U.toast("QR novo gerado"); rotear(); });
         });
+      };
+    });
+  };
+
+
+  // =================================================================== GRADUAÇÃO (equipe)
+  var NOME_SIS = { prajied: "Prajied", faixa: "Faixa", nivel: "Nível" };
+
+  function graduacaoAluno(alunoId, perfil) {
+    var admin = S.modo === "admin";
+    Promise.all([
+      sb.from("modalidades").select("id,nome,sistema,ordem").eq("ativa", true).order("ordem").then(chk),
+      sb.from("graduacao_niveis").select("*").order("ordem").then(chk),
+      sb.from("graduacoes_aluno").select("*, professor:profiles!graduacoes_aluno_professor_id_fkey(nome)").eq("aluno_id", alunoId).order("data", { ascending: false }).then(chk),
+      sb.from("graduacao_requisitos").select("*").order("ordem").then(chk),
+      sb.from("aluno_tecnicas").select("requisito_id").eq("aluno_id", alunoId).then(chk),
+      sb.from("matriculas").select("turmas(modalidade_id)").eq("aluno_id", alunoId).then(chk)
+    ]).then(function (r) {
+      var mods = r[0], niveis = r[1], hist = r[2], reqs = r[3], feitas = r[4].map(function (x) { return x.requisito_id; });
+      var matMods = r[5].map(function (m) { return m.turmas && m.turmas.modalidade_id; });
+      var idade = U.idade(perfil.data_nascimento), crianca = idade !== null && idade < 16;
+      var nivelPorId = {}; niveis.forEach(function (n) { nivelPorId[n.id] = n; });
+      // modalidades relevantes: matriculado, com histórico ou interesse
+      var interesse = (perfil.modalidades_interesse || []);
+      var relevantes = mods.filter(function (m) {
+        return matMods.indexOf(m.id) >= 0 || hist.some(function (h) { return h.modalidade_id === m.id; }) ||
+          interesse.indexOf((m.nome || "").toLowerCase().replace(/ /g, "-").normalize("NFD").replace(/[̀-ͯ]/g, "")) >= 0;
+      });
+      if (!relevantes.length) relevantes = mods;
+      function nomeGrad(h) { var n = nivelPorId[h.nivel_id] || {}; return (n.nome || "?") + (h.grau ? " · " + h.grau + "º grau" : ""); }
+
+      var html = '<p style="margin:0 0 14px;color:var(--cinza);font-size:14px">' + esc(perfil.nome || "") + (idade !== null ? " · " + idade + " anos" : "") + "</p>";
+      relevantes.forEach(function (m) {
+        var atual = hist.filter(function (h) { return h.modalidade_id === m.id; })[0];
+        var lista = niveis.filter(function (n) { return n.modalidade_id === m.id && (m.sistema !== "faixa" || n.infantil === crianca); });
+        var ordemAtual = atual ? (nivelPorId[atual.nivel_id] || {}).ordem || 0 : 0;
+        var prox = lista.filter(function (n) { return n.ordem > ordemAtual; })[0];
+        var rq = prox ? reqs.filter(function (q) { return q.nivel_id === prox.id; }) : [];
+        html += '<div class="cartao" style="margin-bottom:10px"><h3 style="margin:0 0 4px;font-family:var(--display);font-style:italic;text-transform:uppercase;font-size:20px">' + esc(m.nome) + "</h3>" +
+          '<p style="margin:0 0 8px;font-size:14px">Atual: <b>' + (atual ? esc(nomeGrad(atual)) + "</b> desde " + U.data(atual.data) : "sem registro</b>") + "</p>" +
+          (prox ? '<p style="margin:0 0 6px;font-size:13px;color:var(--cinza)">Próximo: ' + esc(prox.nome) + (prox.tempo_minimo_meses ? " · mínimo " + prox.tempo_minimo_meses + " meses" : "") + (prox.aulas_minimas ? " · " + prox.aulas_minimas + " aulas" : "") + "</p>" : "") +
+          (rq.length ? '<div style="margin:6px 0 4px">' + rq.map(function (q) {
+            return '<label class="check" style="font-size:14px"><input type="checkbox" data-tec="' + q.id + '"' + (feitas.indexOf(q.id) >= 0 ? " checked" : "") + "> " + esc(q.descricao) + "</label>";
+          }).join("") + "</div>" : (prox ? '<p style="margin:0;font-size:13px;color:var(--cinza-2)">Sem técnicas exigidas cadastradas para esse nível.</p>' : "")) +
+          '<button class="btn-mini" style="margin-top:10px" data-registrar="' + m.id + '">Registrar ' + NOME_SIS[m.sistema].toLowerCase() + "</button></div>";
+      });
+      html += "<h3 style=\"margin:18px 0 8px;font-family:var(--display);font-style:italic;text-transform:uppercase\">Histórico</h3>" +
+        (hist.length ? hist.map(function (h) {
+          var m = mods.filter(function (x) { return x.id === h.modalidade_id; })[0] || {};
+          return '<div class="item" style="margin-bottom:6px"><div><h3 style="font-size:16px">' + esc(m.nome || "") + " · " + esc(nomeGrad(h)) + "</h3><p>" + U.data(h.data) +
+            (h.professor ? " · por " + esc(h.professor.nome) : "") + (h.obs ? " · " + esc(h.obs) : "") + "</p></div>" +
+            (admin ? '<button class="btn-mini claro" data-apagar-grad="' + h.id + '">Apagar</button>' : "") + "</div>";
+        }).join("") : '<p class="vazio">Nenhuma graduação registrada.</p>');
+
+      var f = modal("Graduação", html);
+      f.addEventListener("change", function (e) {
+        var c = e.target.closest("[data-tec]"); if (!c) return;
+        var q = c.checked ? sb.from("aluno_tecnicas").insert({ aluno_id: alunoId, requisito_id: c.getAttribute("data-tec"), marcado_por: S.user.id })
+                          : sb.from("aluno_tecnicas").delete().eq("aluno_id", alunoId).eq("requisito_id", c.getAttribute("data-tec"));
+        q.then(function (x) { if (x.error) { c.checked = !c.checked; return U.erro(x.error); } U.toast(c.checked ? "Técnica marcada" : "Técnica desmarcada"); });
+      });
+      f.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-registrar]"), d = e.target.closest("[data-apagar-grad]");
+        if (d) {
+          if (!confirmar(d)) return;
+          sb.from("graduacoes_aluno").delete().eq("id", d.getAttribute("data-apagar-grad")).then(function (x) {
+            if (x.error) return U.erro(x.error); U.toast("Registro apagado"); f.remove(); graduacaoAluno(alunoId, perfil);
+          });
+        }
+        if (!b) return;
+        var m = mods.filter(function (x) { return x.id === b.getAttribute("data-registrar"); })[0];
+        var lista = niveis.filter(function (n) { return n.modalidade_id === m.id; }).sort(function (a, c) { return (a.infantil - c.infantil) || (a.ordem - c.ordem); });
+        var ultimo = hist.filter(function (h) { return h.modalidade_id === m.id; })[0];
+        modal("Registrar " + NOME_SIS[m.sistema].toLowerCase() + " · " + m.nome,
+          '<div class="campo"><label for="g-n">' + NOME_SIS[m.sistema] + '</label><select class="sel" id="g-n">' + lista.map(function (n) {
+            return '<option value="' + n.id + '" data-graus="' + n.graus_max + '"' + (ultimo && ultimo.nivel_id === n.id ? " selected" : "") + ">" + esc(n.nome) + (n.infantil ? " (infantil)" : "") + "</option>";
+          }).join("") + "</select></div>" +
+          '<div class="campo" style="margin-top:12px" id="g-grau-c"><label for="g-g">Grau</label><select class="sel" id="g-g"></select></div>' +
+          '<div class="linha2" style="margin-top:12px"><div class="campo"><label for="g-d">Data</label><input id="g-d" type="date" value="' + U.hojeISO() + '"></div>' +
+          '<div class="campo"><label for="g-o">Observação</label><input id="g-o" placeholder="Ex.: exame de 28/11"></div></div>' +
+          '<p style="color:var(--cinza);font-size:13px;margin:12px 0 0">Fica registrado quem graduou e quando. Use também para lançar a graduação que o aluno já tinha.</p>',
+          [["Cancelar", null, "claro"], ["Registrar", function (g) {
+            var sel = g.querySelector("#g-n");
+            return sb.from("graduacoes_aluno").insert({
+              aluno_id: alunoId, modalidade_id: m.id, nivel_id: sel.value,
+              grau: parseInt((g.querySelector("#g-g") || {}).value, 10) || 0,
+              data: g.querySelector("#g-d").value || U.hojeISO(), professor_id: S.user.id, obs: g.querySelector("#g-o").value.trim() || null
+            }).then(function (x) {
+              if (x.error) { U.erro(x.error); return false; }
+              U.toast("Graduação registrada 🔥"); f.remove(); graduacaoAluno(alunoId, perfil);
+            });
+          }, "verde"]]);
+        var atualizaGraus = function () {
+          var mx = parseInt(document.querySelector("#g-n").selectedOptions[0].getAttribute("data-graus"), 10) || 0;
+          document.querySelector("#g-grau-c").hidden = !mx;
+          var opts = ""; for (var i = 0; i <= mx; i++) opts += '<option value="' + i + '">' + (i ? i + "º grau" : "Sem grau") + "</option>";
+          document.querySelector("#g-g").innerHTML = opts;
+        };
+        document.querySelector("#g-n").onchange = atualizaGraus; atualizaGraus();
+      });
+    }).catch(function (e) { U.erro(e); });
+  }
+
+  // confirmação em dois toques (sem alert/confirm do navegador)
+  function confirmar(btn) {
+    if (btn.getAttribute("data-conf") === "1") return true;
+    btn.setAttribute("data-conf", "1"); var t = btn.textContent; btn.textContent = "Toque de novo";
+    setTimeout(function () { btn.removeAttribute("data-conf"); btn.textContent = t; }, 3000);
+    return false;
+  }
+
+  // ------------------------------------------------ configuração dos sistemas (admin)
+  VIEWS.graduacoes = function () {
+    var modSel = (location.hash.match(/mod=([0-9a-f-]+)/) || [])[1];
+    return Promise.all([
+      sb.from("modalidades").select("id,nome,sistema").eq("ativa", true).order("ordem").then(chk),
+      sb.from("graduacao_niveis").select("*").order("infantil").order("ordem").then(chk),
+      sb.from("graduacao_requisitos").select("*").order("ordem").then(chk)
+    ]).then(function (r) {
+      var mods = r[0], niveis = r[1], reqs = r[2];
+      var m = mods.filter(function (x) { return x.id === modSel; })[0] || mods[0];
+      var lista = niveis.filter(function (n) { return n.modalidade_id === m.id; });
+      var termo = NOME_SIS[m.sistema];
+      tela.innerHTML = "<h1>Sistema de <em>graduação</em></h1><p class=\"sub\">Defina " + (m.sistema === "prajied" ? "os prajieds" : m.sistema === "faixa" ? "as faixas" : "os níveis") +
+        ", a ordem, o tempo mínimo, as aulas mínimas e as técnicas cobradas no exame. O aluno vê o progresso a partir daqui.</p>" +
+        '<div class="filtros">' + mods.map(function (x) { return '<button class="filtro" data-mod="' + x.id + '" aria-pressed="' + (x.id === m.id) + '">' + esc(x.nome) + "</button>"; }).join("") + "</div>" +
+        (m.sistema === "prajied" ? '<p style="color:#f2a20c;font-size:14px;margin:0 0 12px">Muay Thai gradua por prajied. Nunca use "faixa" nos nomes.</p>' : "") +
+        '<div class="lista">' + lista.map(function (n) {
+          var rq = reqs.filter(function (q) { return q.nivel_id === n.id; });
+          return '<div class="cartao" data-nivel="' + n.id + '">' +
+            '<div class="linha2"><div class="campo"><label>Nome</label><input data-c="nome" value="' + esc(n.nome) + '"></div>' +
+            '<div class="campo"><label>Cor</label><input data-c="cor" type="color" value="' + esc(n.cor || "#888888") + '" style="height:46px;padding:4px"></div></div>' +
+            '<div class="linha2" style="margin-top:10px"><div class="campo"><label>Ordem</label><input data-c="ordem" type="number" value="' + n.ordem + '"></div>' +
+            '<div class="campo"><label>Graus (0 = sem grau)</label><input data-c="graus_max" type="number" min="0" max="10" value="' + n.graus_max + '"></div></div>' +
+            '<div class="linha2" style="margin-top:10px"><div class="campo"><label>Tempo mínimo (meses)</label><input data-c="tempo_minimo_meses" type="number" min="0" value="' + n.tempo_minimo_meses + '"></div>' +
+            '<div class="campo"><label>Aulas mínimas</label><input data-c="aulas_minimas" type="number" min="0" value="' + n.aulas_minimas + '"></div></div>' +
+            (m.sistema === "faixa" ? '<label class="check" style="margin-top:10px"><input type="checkbox" data-c="infantil"' + (n.infantil ? " checked" : "") + "> Faixa infantil</label>" : "") +
+            '<p style="margin:14px 0 6px;font-family:var(--display);font-weight:700;letter-spacing:2px;font-size:13px;color:var(--vermelho);text-transform:uppercase">Técnicas exigidas para chegar aqui</p>' +
+            (rq.length ? rq.map(function (q) { return '<div class="chamada-linha" style="padding:6px 0"><span>' + esc(q.descricao) + '</span><button class="btn-mini claro" data-del-req="' + q.id + '">Remover</button></div>'; }).join("") : '<p class="vazio" style="margin:0 0 6px;font-size:14px">Nenhuma técnica cadastrada.</p>') +
+            '<div class="busca" style="margin:8px 0 0"><input data-novo-req placeholder="Nova técnica (ex.: chute circular com base)"><button class="btn-mini claro" data-add-req="' + n.id + '">Adicionar</button></div>' +
+            '<div class="busca" style="margin:12px 0 0"><button class="btn-mini" data-salvar-nivel="' + n.id + '">Salvar ' + termo.toLowerCase() + '</button><button class="btn-mini claro" data-del-nivel="' + n.id + '">Excluir</button></div></div>';
+        }).join("") + "</div>" +
+        '<div class="busca" style="margin-top:14px"><button class="btn-mini" id="novo-nivel">Adicionar ' + termo.toLowerCase() + "</button></div>";
+
+      tela.onclick = function (e) {
+        var b;
+        if ((b = e.target.closest("[data-mod]"))) { location.hash = "#/graduacoes?mod=" + b.getAttribute("data-mod"); return; }
+        if ((b = e.target.closest("[data-salvar-nivel]"))) {
+          var card = b.closest("[data-nivel]"), d = {};
+          U.$$("[data-c]", card).forEach(function (i) {
+            var k = i.getAttribute("data-c");
+            d[k] = i.type === "checkbox" ? i.checked : (i.type === "number" ? parseInt(i.value, 10) || 0 : i.value.trim());
+          });
+          if (m.sistema === "prajied" && /faixa/i.test(d.nome)) return U.toast('No Muay Thai é prajied, não "faixa".', "erro");
+          sb.from("graduacao_niveis").update(d).eq("id", b.getAttribute("data-salvar-nivel")).then(function (x) { if (x.error) return U.erro(x.error); U.toast("Salvo"); });
+        }
+        if ((b = e.target.closest("[data-del-nivel]"))) {
+          if (!confirmar(b)) return;
+          sb.from("graduacao_niveis").delete().eq("id", b.getAttribute("data-del-nivel")).then(function (x) {
+            if (x.error) return U.erro(/foreign key/i.test(x.error.message) ? { message: "Já tem aluno com essa graduação no histórico. Renomeie em vez de excluir." } : x.error);
+            U.toast("Excluído"); rotear();
+          });
+        }
+        if ((b = e.target.closest("[data-add-req]"))) {
+          var inp = b.parentNode.querySelector("[data-novo-req]"), txt = inp.value.trim(); if (!txt) return;
+          sb.from("graduacao_requisitos").insert({ nivel_id: b.getAttribute("data-add-req"), descricao: txt, ordem: reqs.length + 1 }).then(function (x) { if (x.error) return U.erro(x.error); rotear(); });
+        }
+        if ((b = e.target.closest("[data-del-req]"))) {
+          sb.from("graduacao_requisitos").delete().eq("id", b.getAttribute("data-del-req")).then(function (x) { if (x.error) return U.erro(x.error); rotear(); });
+        }
+        if (e.target.id === "novo-nivel") {
+          var maior = lista.reduce(function (a, n) { return n.infantil ? a : Math.max(a, n.ordem); }, 0);
+          sb.from("graduacao_niveis").insert({ modalidade_id: m.id, nome: "Novo " + termo.toLowerCase(), cor: "#888888", ordem: maior + 1, graus_max: m.sistema === "faixa" ? 4 : 0 })
+            .then(function (x) { if (x.error) return U.erro(x.error); U.toast("Adicionado. Ajuste nome e cor e salve."); rotear(); });
+        }
       };
     });
   };
