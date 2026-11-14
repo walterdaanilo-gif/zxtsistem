@@ -24,7 +24,7 @@
 
   var MENUS = {
     aluno: [["comunidade", "Comunidade", "comunidade"], ["inicio", "Início", "casa"], ["agenda", "Agenda", "agenda"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["graduacao", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
-    professor: [["chamada", "Chamada", "chamada"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["graduacoes", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
+    professor: [["chamada", "Chamada", "chamada"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["finturmas", "Financeiro", "dinheiro"], ["graduacoes", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
     admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["professores", "Professores", "professor"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["config", "Configurações", "config"], ["perfil", "Meu perfil", "perfil"]]
   };
   var NOME_PAPEL = { aluno: "Aluno", professor: "Professor", admin: "Administração" };
@@ -55,7 +55,7 @@
       ativo: "ok", pendente: "atencao", recusado: "risco", trancado: "neutro", inativo: "neutro",
       reservada: "info", espera: "atencao", presente: "ok", falta: "risco", cancelada: "neutro",
       agendada: "info", compareceu: "atencao", matriculou: "ok", nao_compareceu: "risco", desistiu: "neutro" };
-    var nomes = { em_aberto: "Em aberto", nao_compareceu: "Não veio", espera: "Lista de espera" };
+    var nomes = { em_aberto: "Em aberto", nao_compareceu: "Não veio", espera: "Lista de espera", sem: "Sem cobrança" };
     return '<span class="tag ' + (m[s] || "neutro") + '">' + esc(nomes[s] || (s.charAt(0).toUpperCase() + s.slice(1))) + "</span>";
   }
   function primeiroNome(n) { return (n || "Guerreiro").split(" ")[0]; }
@@ -1431,6 +1431,57 @@
         planoId: ass ? ass.plano_id : null, turmaIds: mats.filter(function (t) { return dp.turmas.some(function (x) { return x.id === t && !x.coletiva; }); }) });
     }).catch(function (e) { U.erro(e); });
   }
+
+  // ------------------------------------------------ professor: financeiro das minhas turmas (só leitura)
+  VIEWS.finturmas = function () {
+    var soPend = /pend=1/.test(location.hash);
+    return sb.from("turmas").select("id,nome,dias_semana,hora_inicio").eq("professor_id", S.user.id).eq("ativa", true).order("nome").then(chk).then(function (turmas) {
+      if (!turmas.length) {
+        tela.innerHTML = '<h1>Financeiro das <em>turmas</em></h1><div class="vazio-box">Você ainda não é o professor responsável por nenhuma turma. Peça à administração para definir suas turmas.</div>';
+        return;
+      }
+      var ids = turmas.map(function (t) { return t.id; });
+      return sb.from("matriculas").select("turma_id, aluno_id, profiles(nome,whatsapp,status)").in("turma_id", ids).then(chk).then(function (mats) {
+        var alunos = {}; mats.forEach(function (m) { alunos[m.aluno_id] = 1; });
+        var aIds = Object.keys(alunos);
+        return (aIds.length ? sb.from("cobrancas").select("aluno_id,descricao,vencimento,valor_final_centavos,status,pago_em").in("aluno_id", aIds).order("vencimento", { ascending: false }).then(chk) : Promise.resolve([]))
+          .then(function (cs) {
+            var porAluno = {}; cs.forEach(function (c) { (porAluno[c.aluno_id] = porAluno[c.aluno_id] || []).push(c); });
+            function situacao(aid) {
+              var l = porAluno[aid] || [];
+              var atr = l.filter(function (c) { return c.status === "atrasado"; }), ab = l.filter(function (c) { return c.status === "em_aberto"; });
+              if (atr.length) return { st: "atrasado", c: atr[atr.length - 1], soma: atr.reduce(function (s, c) { return s + c.valor_final_centavos; }, 0), n: atr.length };
+              if (ab.length) return { st: "em_aberto", c: ab[ab.length - 1], soma: ab.reduce(function (s, c) { return s + c.valor_final_centavos; }, 0), n: ab.length };
+              return { st: l.length ? "pago" : "sem", c: l[0], soma: 0, n: 0 };
+            }
+            var html = '<h1>Financeiro das <em>turmas</em></h1><p class="sub">Situação das mensalidades dos alunos das suas turmas. A baixa de pagamento em dinheiro é feita pela administração.</p>' +
+              '<div class="filtros"><button class="filtro" data-pend="0" aria-pressed="' + !soPend + '">Todos os alunos</button><button class="filtro" data-pend="1" aria-pressed="' + soPend + '">Só pendentes</button></div>';
+            turmas.forEach(function (t) {
+              var ms = mats.filter(function (m) { return m.turma_id === t.id && m.profiles && m.profiles.status === "ativo"; });
+              var sits = ms.map(function (m) { return { m: m, s: situacao(m.aluno_id) }; }).sort(function (a, b) {
+                var ord = { atrasado: 0, em_aberto: 1, sem: 2, pago: 3 }; return ord[a.s.st] - ord[b.s.st] || (a.m.profiles.nome || "").localeCompare(b.m.profiles.nome || "");
+              });
+              var nAtr = sits.filter(function (x) { return x.s.st === "atrasado"; }).length, nAb = sits.filter(function (x) { return x.s.st === "em_aberto"; }).length;
+              var valorAtr = sits.reduce(function (s, x) { return s + (x.s.st === "atrasado" ? x.s.soma : 0); }, 0);
+              var lista = soPend ? sits.filter(function (x) { return x.s.st === "atrasado" || x.s.st === "em_aberto"; }) : sits;
+              html += '<div class="cartao" style="margin-bottom:12px"><h2 style="margin:0 0 4px">' + esc(t.nome) + '</h2><p style="margin:0 0 12px;color:var(--cinza);font-size:14px">' + horarioTurma(t) + "</p>" +
+                '<div class="kpis"><div class="kpi"><b>' + sits.length + '</b><span>Alunos</span></div><div class="kpi"><b>' + (sits.length - nAtr - nAb) + '</b><span>Em dia</span></div>' +
+                '<div class="kpi' + (nAb ? " alerta" : "") + '"><b>' + nAb + '</b><span>Em aberto</span></div><div class="kpi' + (nAtr ? " alerta" : "") + '"><b>' + nAtr + "</b><span>Atrasados · " + U.reais(valorAtr) + "</span></div></div>" +
+                (lista.length ? '<div class="lista" style="margin-top:12px">' + lista.map(function (x) {
+                  var p = x.m.profiles, s = x.s, txt = s.st === "pago" ? "Em dia" + (s.c && s.c.pago_em ? " · última paga em " + U.data(s.c.pago_em) : "")
+                    : s.st === "sem" ? "Sem mensalidade lançada" : (s.n > 1 ? s.n + " mensalidades · " : "") + U.reais(s.soma) + " · vence " + U.data(s.c.vencimento);
+                  var msg = "Oi, " + primeiroNome(p.nome) + "! Aqui é da ZXT 🥊 Passando pra lembrar da sua mensalidade de " + U.reais(s.soma) + ". Dá pra pagar direto no portal, em Mensalidades (Pix, boleto ou cartão). Qualquer dúvida, chama aqui!";
+                  return '<div class="item' + (s.st === "atrasado" ? " destaque" : "") + '"><div><h3>' + esc(p.nome || "Aluno") + "</h3><p>" + esc(txt) + "</p></div>" +
+                    '<div class="acoes">' + tagStatus(s.st) +
+                    ((s.st === "atrasado" || s.st === "em_aberto") && p.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(p.whatsapp, msg) + '">Cobrar no WhatsApp</a>' : "") + "</div></div>";
+                }).join("") + "</div>" : '<p class="vazio" style="margin:12px 0 0">' + (soPend ? "Ninguém pendente nessa turma 🔥" : "Nenhum aluno ativo nessa turma.") + "</p>") + "</div>";
+            });
+            tela.innerHTML = html;
+            tela.onclick = function (e) { var b = e.target.closest("[data-pend]"); if (b) location.hash = "#/finturmas" + (b.getAttribute("data-pend") === "1" ? "?pend=1" : ""); };
+          });
+      });
+    });
+  };
 
   // ------------------------------------------------ equipe: dados e turmas do aluno
   function editarDadosAluno(id, p) {
