@@ -166,11 +166,11 @@
     return planos.map(function (p) {
       var lim = p.aulas_semana, usadas = p.usadas || 0;
       var pct = lim ? Math.min(100, Math.round(usadas / lim * 100)) : 0;
+      var turmasTxt = p.turmas_livres ? "Todas as turmas e horários" : (p.turmas && p.turmas.length ? p.turmas.join(" + ") : "Turma ainda não definida, fale com a recepção");
       return '<div class="cartao" style="margin-bottom:12px"><p style="margin:0 0 6px;color:var(--cinza);font-size:14px">Seu plano</p>' +
         '<h3 style="margin:0 0 6px;font-family:var(--display);font-style:italic;text-transform:uppercase;font-size:22px">' + esc(p.plano) + "</h3>" +
-        '<p style="margin:0 0 10px;color:var(--cinza);font-size:14px">' + esc(p.modalidades.length ? p.modalidades.join(", ") : "Todas as modalidades") + " · sparring de sexta liberado</p>" +
-        (lim ? '<p style="margin:0 0 6px"><b>' + usadas + " de " + lim + "</b> aulas usadas nesta semana (seg a dom)</p><div class=\"barra\"><i style=\"width:" + pct + '%"></i></div>'
-             : "<p style=\"margin:0\"><b>Aulas livres</b> na semana</p>") + "</div>";
+        '<p style="margin:0;color:var(--cinza);font-size:14px"><b style="color:#fff">' + esc(turmasTxt) + "</b> · sparring de sexta liberado</p>" +
+        (lim ? '<p style="margin:10px 0 6px"><b>' + usadas + " de " + lim + "</b> aulas usadas nesta semana (seg a dom)</p><div class=\"barra\"><i style=\"width:" + pct + '%"></i></div>' : "") + "</div>";
     }).join("");
   }
 
@@ -233,18 +233,18 @@
       var planos = pr[1].data || [];
       var cobre = function (mod) { return !planos.length || planos.some(function (p) { return !p.modalidade_ids.length || p.modalidade_ids.indexOf(mod) >= 0; }); };
       var turmasMinhas = mats.map(function (m) { return m.turma_id; });
-      var modsMinhas = mats.map(function (m) { return m.turmas.modalidade_id; });
+      var livre = planos.some(function (p) { return p.turmas_livres; });
       return sb.from("aulas").select("id,inicio,fim,status,turma_id, turmas(nome,coletiva,sparring,modalidade_id)")
         .gte("inicio", agora.toISOString()).lte("inicio", ate.toISOString()).order("inicio").then(chk).then(function (aulas) {
           aulas = aulas.filter(function (a) {
-            return a.turmas.coletiva || turmasMinhas.indexOf(a.turma_id) >= 0 || modsMinhas.indexOf(a.turmas.modalidade_id) >= 0;
+            return a.turmas.coletiva || livre || turmasMinhas.indexOf(a.turma_id) >= 0;
           });
           var ids = aulas.map(function (a) { return a.id; });
           return (ids.length ? sb.from("reservas").select("aula_id,status").eq("aluno_id", S.user.id).in("aula_id", ids).then(chk) : Promise.resolve([]))
             .then(function (res) {
               var st = {}; res.forEach(function (x) { st[x.aula_id] = x.status; });
               var dia = "", html = "<h1>Minha <em>agenda</em></h1><p class=\"sub\">Próximos 7 dias das suas turmas e do sparring de sexta. Cancelamento até 2h antes.</p>" + planoHtml;
-              if (!mats.length) html += '<div class="vazio-box" style="margin-bottom:16px">Você ainda não está matriculado em nenhuma turma. Fale com a recepção.</div>';
+              if (!mats.length && !livre) html += '<div class="vazio-box" style="margin-bottom:16px">Você ainda não está matriculado em nenhuma turma. Fale com a recepção.</div>';
               if (!aulas.length) html += '<div class="vazio-box">Nenhuma aula nos próximos dias.</div>';
               html += '<div class="lista">';
               aulas.forEach(function (a) {
@@ -537,6 +537,7 @@
         ["ativo", "trancado", "inativo", "pendente", "recusado"].map(function (s) { return '<option' + (s === p.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select></div>";
       var bots = [["Fechar", null, "claro"], ["Graduação", function () { graduacaoAluno(id, p); }, "verde"], ["Observação", function () { observacao(id, p.nome); }, "claro"]];
       if (admin) {
+        bots.push(["Plano e turmas", function () { planoETurmas(id, p); }, "verde"]);
         bots.push([papeis.indexOf("professor") >= 0 ? "Tirar de professor" : "Tornar professor", function () {
           var q = papeis.indexOf("professor") >= 0 ? sb.from("user_roles").delete().eq("user_id", id).eq("papel", "professor") : sb.from("user_roles").insert({ user_id: id, papel: "professor" });
           return q.then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Papel atualizado"); });
@@ -589,17 +590,19 @@
   VIEWS.aprovacoes = function () {
     return Promise.all([
       sb.from("profiles").select("*").eq("status", "pendente").order("created_at").then(chk),
-      sb.from("planos").select("id,nome,valor_centavos,periodicidade,aulas_semana, plano_modalidades(modalidade_id)").eq("ativo", true).order("nome").then(chk),
-      sb.from("turmas").select("id,nome,modalidade_id,coletiva").eq("ativa", true).eq("coletiva", false).order("nome").then(chk)
+      carregarDadosPlano()
     ]).then(function (r) {
-      var ps = r[0], planos = r[1], turmas = r[2];
-      tela.innerHTML = "<h1><em>Aprovações</em></h1><p class=\"sub\">" + ps.length + " cadastro(s) aguardando. Aprove escolhendo plano e turma.</p>" +
+      var ps = r[0], dp = r[1], planos = dp.planos, turmas = dp.turmas;
+      var nomePlano = {}; planos.forEach(function (x) { nomePlano[x.id] = x.nome; });
+      var nomeTurma = {}; turmas.forEach(function (x) { nomeTurma[x.id] = x.nome; });
+      tela.innerHTML = "<h1><em>Aprovações</em></h1><p class=\"sub\">" + ps.length + " cadastro(s) aguardando. O plano e as turmas escolhidos pelo aluno já vêm marcados: confira e aprove.</p>" +
         (ps.length ? '<div class="lista">' + ps.map(function (p) {
           var idade = U.idade(p.data_nascimento);
           return '<div class="cartao"><h3 style="margin:0;font-family:var(--display);font-style:italic;text-transform:uppercase;font-size:22px">' + esc(p.nome || p.email) + "</h3>" +
             '<p style="margin:6px 0;color:var(--cinza);font-size:14px">' + esc(p.email || "") + " · " + esc(p.whatsapp || "sem WhatsApp") + (idade !== null ? " · " + idade + " anos" : "") +
             " · cadastrado em " + U.data(p.created_at) + "</p>" +
-            '<p style="margin:0 0 6px;font-size:14px">Interesse: <b>' + esc((p.modalidades_interesse || []).join(", ") || "não informado") + "</b></p>" +
+            '<p style="margin:0 0 6px;font-size:14px">Escolheu: <b>' + esc(nomePlano[p.plano_escolhido_id] || "sem plano escolhido") + "</b>" +
+              ((p.turmas_escolhidas || []).length ? " · " + esc(p.turmas_escolhidas.map(function (t) { return nomeTurma[t] || "turma removida"; }).join(" + ")) : "") + "</p>" +
             (p.saude_obs ? '<p style="margin:0 0 6px;font-size:14px;color:#f2a20c">⚠ ' + esc(p.saude_obs) + "</p>" : "") +
             (p.responsavel_nome ? '<p style="margin:0 0 6px;font-size:14px">Responsável: ' + esc(p.responsavel_nome) + " · " + esc(p.responsavel_whatsapp || "") + "</p>" : "") +
             '<p style="margin:0 0 12px;font-size:13px;color:var(--cinza-2)">Termo aceito: ' + (p.aceite_termo_em ? U.data(p.aceite_termo_em) : "não") + " · Privacidade: " + (p.aceite_privacidade_em ? U.data(p.aceite_privacidade_em) : "não") + "</p>" +
@@ -610,31 +613,20 @@
         var a = e.target.closest("[data-aprovar]"), rc = e.target.closest("[data-recusar]");
         if (a) {
           var id = a.getAttribute("data-aprovar");
+          var perfilAp = ps.filter(function (x) { return x.id === id; })[0] || {};
+          var pickAp = null;
           var fm = modal("Aprovar cadastro",
-            '<div class="campo"><label for="ap-plano">Plano</label><select class="sel" id="ap-plano"><option value="">Sem plano por enquanto</option>' +
-            planos.map(function (pl) { return '<option value="' + pl.id + '">' + esc(pl.nome) + " · " + U.reais(pl.valor_centavos) + " · " + (pl.aulas_semana ? pl.aulas_semana + "x/sem" : "livre") + "</option>"; }).join("") + "</select>" +
-            (planos.length ? "" : '<small>Nenhum plano cadastrado ainda. Cadastre em Financeiro.</small>') + "</div>" +
-            '<div class="campo" style="margin-top:14px"><label>Turmas</label>' + turmas.map(function (t) {
-              return '<label class="check"><input type="checkbox" name="ap-t" value="' + t.id + '"> ' + esc(t.nome) + "</label>"; }).join("") + "</div>" +
-            '<div class="campo" style="margin-top:14px"><label for="ap-dia">Dia de vencimento</label><input id="ap-dia" type="number" min="1" max="28" value="10"></div>' +
-            '<p style="color:var(--cinza);font-size:13px;margin:10px 0 0">O sparring de sexta é liberado para todos. Turmas fora das modalidades do plano ficam bloqueadas.</p>',
+            (planos.length ? "" : '<p style="color:#f2a20c;font-size:14px">Nenhum plano ativo. Cadastre em Financeiro.</p>') +
+            '<div id="ap-picker"></div>' +
+            '<div class="campo" style="margin-top:14px"><label for="ap-dia">Dia de vencimento</label><input id="ap-dia" type="number" min="1" max="28" value="10"></div>',
             [["Cancelar", null, "claro"], ["Aprovar", function (f) {
-              var ts = U.$$('input[name="ap-t"]:checked', f).map(function (i) { return i.value; });
-              if (!ts.length) { U.toast("Escolha pelo menos uma turma.", "erro"); return false; }
-              return sb.rpc("aprovar_aluno", { p_aluno: id, p_plano: f.querySelector("#ap-plano").value || null, p_turmas: ts, p_dia_vencimento: parseInt(f.querySelector("#ap-dia").value, 10) || 10 })
+              var er = pickAp.erro(); if (er) { U.toast(er, "erro"); return false; }
+              var v = pickAp.valor();
+              return sb.rpc("aprovar_aluno", { p_aluno: id, p_plano: v.plano, p_turmas: v.turmas, p_dia_vencimento: parseInt(f.querySelector("#ap-dia").value, 10) || 10 })
                 .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Aprovado. Bem-vindo à família ZxT 🥊"); montarMenu(); rotear(); });
             }, "verde"]]);
-          var turmaMod = {}; turmas.forEach(function (t) { turmaMod[t.id] = t.modalidade_id; });
-          var filtrarTurmas = function () {
-            var pl = planos.filter(function (x) { return x.id === fm.querySelector("#ap-plano").value; })[0];
-            var ok = pl ? (pl.plano_modalidades || []).map(function (x) { return x.modalidade_id; }) : [];
-            U.$$('input[name="ap-t"]', fm).forEach(function (i) {
-              var livre = !ok.length || ok.indexOf(turmaMod[i.value]) >= 0;
-              i.disabled = !livre; if (!livre) i.checked = false;
-              i.parentNode.style.opacity = livre ? 1 : .4;
-            });
-          };
-          fm.querySelector("#ap-plano").onchange = filtrarTurmas; filtrarTurmas();
+          pickAp = PlanoPicker(fm.querySelector("#ap-picker"), { planos: planos, turmas: turmas, modalidades: dp.modalidades, permitirSemPlano: true,
+            planoId: perfilAp.plano_escolhido_id, turmaIds: (perfilAp.turmas_escolhidas || []).filter(function (t) { return nomeTurma[t]; }) });
         }
         if (rc) {
           var idr = rc.getAttribute("data-recusar");
@@ -660,8 +652,9 @@
       tela.innerHTML = "<h1><em>Financeiro</em></h1><p class=\"sub\">Planos, mensalidades e baixa manual. Só a administração vê esta área.</p>" +
         "<h2>Planos</h2>" + (planos.length ? '<div class="lista">' + planos.map(function (p) {
           var ms = modsDo(p);
-          return '<div class="item"><div><h3>' + esc(p.nome) + "</h3><p>" + U.reais(p.valor_centavos) + " · " + p.periodicidade + " · " +
-            (p.aulas_semana ? p.aulas_semana + " aula(s) por semana" : "aulas livres") + " · " + esc(ms.length ? ms.join(", ") : "todas as modalidades") + "</p></div>" +
+          var regraT = p.turmas_livres ? "todas as turmas" : p.max_turmas ? p.max_turmas + (p.max_turmas > 1 ? " turmas" : " turma") : "turmas definidas pela equipe";
+          return '<div class="item"><div><h3>' + esc(p.nome) + "</h3><p>" + U.reais(p.valor_centavos) + " · " + p.periodicidade + " · " + regraT + " + sparring" +
+            (p.aulas_semana ? " · limite de " + p.aulas_semana + " aula(s) por semana" : "") + (ms.length ? " · só " + esc(ms.join(", ")) : "") + "</p></div>" +
             '<div class="acoes">' + tagStatus(p.ativo ? "ativo" : "inativo") + ' <button class="btn-mini claro" data-editar-plano="' + p.id + '">Editar</button></div></div>';
         }).join("") + "</div>" : '<div class="vazio-box">Nenhum plano. Cadastre com os valores da tabela vigente.</div>') +
         '<div class="busca" style="margin-top:10px"><button class="btn-mini claro" id="novo-plano">Novo plano</button><button class="btn-mini claro" id="gerar">Gerar mensalidades do mês</button></div>' +
@@ -685,32 +678,29 @@
         sb.from("modalidades").select("id,nome").eq("ativa", true).order("ordem").then(function (rm) {
           var mods = rm.data || [];
           modal(p.id ? "Editar plano" : "Novo plano",
-            '<div class="campo"><label for="pl-n">Nome</label><input id="pl-n" placeholder="Ex.: Muay Thai 2x por semana" value="' + esc(p.nome) + '"></div>' +
+            '<div class="campo"><label for="pl-n">Nome</label><input id="pl-n" placeholder="Ex.: Plano básico" value="' + esc(p.nome) + '"></div>' +
             '<div class="linha2" style="margin-top:12px"><div class="campo"><label for="pl-v">Valor (R$)</label><input id="pl-v" inputmode="decimal" placeholder="0,00" value="' +
               (p.valor_centavos != null ? (p.valor_centavos / 100).toFixed(2).replace(".", ",") : "") + '"></div>' +
             '<div class="campo"><label for="pl-p">Periodicidade</label><select class="sel" id="pl-p">' + ["mensal", "trimestral", "semestral", "anual"].map(function (o) {
               return "<option" + (o === p.periodicidade ? " selected" : "") + ">" + o + "</option>"; }).join("") + "</select></div></div>" +
-            '<div class="campo" style="margin-top:12px"><label for="pl-a">Aulas por semana</label><input id="pl-a" type="number" min="1" max="14" placeholder="Vazio = livre" value="' + (p.aulas_semana || "") + '">' +
-              "<small>Conta de segunda a domingo. Sparring de sexta não conta.</small></div>" +
-            '<div class="campo" style="margin-top:12px"><label>Modalidades incluídas</label>' + mods.map(function (m) {
-              return '<label class="check"><input type="checkbox" name="pl-m" value="' + m.id + '"' + (marcadas.indexOf(m.id) >= 0 ? " checked" : "") + "> " + esc(m.nome) + "</label>"; }).join("") +
-              "<small>Nenhuma marcada = todas as modalidades.</small></div>" +
+            '<div class="campo" style="margin-top:12px"><label for="pl-t">Turmas que o plano dá direito</label><select class="sel" id="pl-t">' +
+              [["1", "1 turma à escolha"], ["2", "2 turmas à escolha (mesma ou outra modalidade)"], ["3", "3 turmas à escolha"], ["4", "4 turmas à escolha"], ["livre", "Todas as turmas e horários"]].map(function (o) {
+                var sel = p.turmas_livres ? o[0] === "livre" : String(p.max_turmas || 1) === o[0];
+                return '<option value="' + o[0] + '"' + (sel ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
+              "<small>Cada turma tem 2 aulas por semana. O sparring de sexta é liberado em todos os planos.</small></div>" +
             (p.id ? '<label class="check" style="margin-top:12px"><input type="checkbox" id="pl-at"' + (p.ativo ? " checked" : "") + "> Plano ativo (aparece na aprovação)</label>" : "") +
             '<p style="color:#f2a20c;font-size:13px;margin:12px 0 0">Use só valores da tabela vigente aprovada.</p>',
             [["Cancelar", null, "claro"], ["Salvar", function (f) {
               var v = Math.round(parseFloat(f.querySelector("#pl-v").value.replace(/\./g, "").replace(",", ".")) * 100);
               var n = f.querySelector("#pl-n").value.trim();
               if (!n || !(v >= 0)) { U.toast("Preencha nome e valor.", "erro"); return false; }
-              var dados = { nome: n, valor_centavos: v, periodicidade: f.querySelector("#pl-p").value, aulas_semana: parseInt(f.querySelector("#pl-a").value, 10) || null };
+              var tv = f.querySelector("#pl-t").value;
+              var dados = { nome: n, valor_centavos: v, periodicidade: f.querySelector("#pl-p").value,
+                turmas_livres: tv === "livre", max_turmas: tv === "livre" ? null : parseInt(tv, 10) };
               if (p.id) dados.ativo = f.querySelector("#pl-at").checked;
-              var ms = U.$$('input[name="pl-m"]:checked', f).map(function (i) { return i.value; });
               var q = p.id ? sb.from("planos").update(dados).eq("id", p.id).select().single() : sb.from("planos").insert(dados).select().single();
               return q.then(function (x) {
                 if (x.error) throw x.error;
-                return sb.from("plano_modalidades").delete().eq("plano_id", x.data.id).then(function (d) {
-                  if (d.error) throw d.error;
-                  return ms.length ? sb.from("plano_modalidades").insert(ms.map(function (m) { return { plano_id: x.data.id, modalidade_id: m }; })).then(function (i) { if (i.error) throw i.error; }) : null;
-                });
               }).then(function () { U.toast("Plano salvo"); rotear(); }).catch(function (e) { U.erro(e); return false; });
             }]]);
         });
@@ -772,6 +762,29 @@
     });
   };
 
+
+  // troca de plano e turmas de quem já é aluno (admin)
+  function planoETurmas(alunoId, perfil) {
+    Promise.all([
+      carregarDadosPlano(),
+      sb.from("assinaturas").select("plano_id,dia_vencimento").eq("aluno_id", alunoId).eq("ativa", true).order("created_at", { ascending: false }).limit(1).then(chk),
+      sb.from("matriculas").select("turma_id").eq("aluno_id", alunoId).then(chk)
+    ]).then(function (r) {
+      var dp = r[0], ass = r[1][0], mats = r[2].map(function (m) { return m.turma_id; });
+      var pick = null;
+      var f = modal("Plano e turmas · " + (perfil.nome || ""),
+        '<div id="pt-picker"></div><div class="campo" style="margin-top:14px"><label for="pt-dia">Dia de vencimento</label><input id="pt-dia" type="number" min="1" max="28" value="' + ((ass && ass.dia_vencimento) || 10) + '"></div>' +
+        '<p style="color:var(--cinza);font-size:13px;margin:10px 0 0">Trocar de plano encerra o plano atual hoje e começa o novo. As mensalidades já geradas não mudam.</p>',
+        [["Cancelar", null, "claro"], ["Salvar", function (g) {
+          var er = pick.erro(); if (er) { U.toast(er, "erro"); return false; }
+          var v = pick.valor();
+          return sb.rpc("trocar_plano", { p_aluno: alunoId, p_plano: v.plano, p_turmas: v.turmas, p_dia_vencimento: parseInt(g.querySelector("#pt-dia").value, 10) || 10 })
+            .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Plano e turmas atualizados"); });
+        }, "verde"]]);
+      pick = PlanoPicker(f.querySelector("#pt-picker"), { planos: dp.planos, turmas: dp.turmas, modalidades: dp.modalidades, permitirSemPlano: true,
+        planoId: ass ? ass.plano_id : null, turmaIds: mats.filter(function (t) { return dp.turmas.some(function (x) { return x.id === t && !x.coletiva; }); }) });
+    }).catch(function (e) { U.erro(e); });
+  }
 
   // =================================================================== GRADUAÇÃO (equipe)
   var NOME_SIS = { prajied: "Prajied", faixa: "Faixa", nivel: "Nível" };

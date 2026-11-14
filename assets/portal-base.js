@@ -78,3 +78,92 @@ window.U = {
     return m;
   }
 };
+
+// ---------------------------------------------------------------------------
+// Seletor de plano + turmas (cadastro, aprovação e troca de plano).
+// Regra: plano.max_turmas = quantas turmas pode escolher; plano.turmas_livres = todas.
+// Sparring de sexta é de todos e não entra na escolha.
+// ---------------------------------------------------------------------------
+window.PlanoPicker = function (el, opts) {
+  var DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  var planos = opts.planos || [], turmas = (opts.turmas || []).filter(function (t) { return !t.coletiva; });
+  var mods = opts.modalidades || [];
+  var estado = { plano: opts.planoId || null, turmas: (opts.turmaIds || []).slice() };
+  function regra(p) {
+    if (p.turmas_livres) return "Todas as turmas e horários + sparring de sexta";
+    if (p.max_turmas) return p.max_turmas + (p.max_turmas > 1 ? " turmas à sua escolha" : " turma à sua escolha") + " (2 aulas por semana cada) + sparring de sexta";
+    return "Turmas definidas pela equipe + sparring de sexta";
+  }
+  function horario(t) {
+    return (t.dias_semana || []).map(function (d) { return DIAS[d]; }).join(" e ") + " às " + String(t.hora_inicio || "").slice(0, 5).replace(":00", "h").replace(":", "h");
+  }
+  function planoAtual() { return planos.filter(function (p) { return p.id === estado.plano; })[0]; }
+  function desenhar() {
+    var p = planoAtual();
+    var html = '<div class="planos-op">' + planos.map(function (x) {
+      return '<label class="plano-op' + (x.id === estado.plano ? " sel" : "") + '"><input type="radio" name="pp-plano" value="' + x.id + '"' + (x.id === estado.plano ? " checked" : "") + ">" +
+        "<b>" + U.esc(x.nome) + "</b>" + (opts.mostrarValor !== false ? "<span class=\"valor\">" + U.reais(x.valor_centavos) + "<small>/" + (x.periodicidade || "mês").replace("mensal", "mês") + "</small></span>" : "") +
+        "<span class=\"regra\">" + U.esc(regra(x)) + "</span></label>";
+    }).join("") + (opts.permitirSemPlano ? '<label class="plano-op' + (!estado.plano ? " sel" : "") + '"><input type="radio" name="pp-plano" value=""' + (!estado.plano ? " checked" : "") + "><b>Sem plano</b><span class=\"regra\">Bolsista ou isento: turmas escolhidas pela equipe</span></label>" : "") + "</div>";
+    if (p && p.turmas_livres) {
+      html += '<p class="pp-aviso">Plano livre: treina em qualquer turma e horário. Não precisa escolher turma.</p>';
+    } else if (p || (opts.permitirSemPlano && !estado.plano)) {
+      var max = p ? p.max_turmas : null;
+      html += '<p class="pp-titulo">' + (max ? "Escolha " + (max > 1 ? "até " + max + " turmas" : "1 turma") : "Escolha as turmas") +
+        ' <span id="pp-cont">' + estado.turmas.length + (max ? "/" + max : "") + "</span></p>";
+      mods.forEach(function (m) {
+        var ts = turmas.filter(function (t) { return t.modalidade_id === m.id; });
+        if (!ts.length) return;
+        html += '<p class="pp-mod">' + U.esc(m.nome) + "</p>" + ts.map(function (t) {
+          var on = estado.turmas.indexOf(t.id) >= 0, cheio = max && !on && estado.turmas.length >= max;
+          return '<label class="check pp-turma' + (cheio ? " off" : "") + '"><input type="checkbox" name="pp-turma" value="' + t.id + '"' + (on ? " checked" : "") + (cheio ? " disabled" : "") + "> " +
+            "<span><b>" + U.esc(t.nome.replace(m.nome + " · ", "")) + "</b> · " + horario(t) + "</span></label>";
+        }).join("");
+      });
+      html += '<p class="pp-aviso">O sparring de sexta às 19h é liberado para todos os planos.</p>';
+    } else {
+      html += '<p class="pp-aviso">Escolha um plano para ver as turmas.</p>';
+    }
+    el.innerHTML = html;
+  }
+  el.addEventListener("change", function (e) {
+    if (e.target.name === "pp-plano") {
+      estado.plano = e.target.value || null;
+      var p = planoAtual();
+      if (p && p.turmas_livres) estado.turmas = [];
+      else if (p && p.max_turmas) estado.turmas = estado.turmas.slice(0, p.max_turmas);
+      desenhar();
+    }
+    if (e.target.name === "pp-turma") {
+      var id = e.target.value, i = estado.turmas.indexOf(id);
+      if (e.target.checked && i < 0) estado.turmas.push(id);
+      if (!e.target.checked && i >= 0) estado.turmas.splice(i, 1);
+      desenhar();
+    }
+  });
+  desenhar();
+  return {
+    valor: function () { return { plano: estado.plano, turmas: estado.turmas.slice() }; },
+    erro: function () {
+      var p = planoAtual();
+      if (!estado.plano) return opts.permitirSemPlano ? (estado.turmas.length ? null : "Escolha pelo menos uma turma.") : "Escolha um plano.";
+      if (p.turmas_livres) return null;
+      if (!estado.turmas.length) return "Escolha a turma do seu plano.";
+      if (p.max_turmas && estado.turmas.length > p.max_turmas) return "Esse plano dá direito a " + p.max_turmas + " turma(s).";
+      return null;
+    },
+    modalidadesSlugs: function () {
+      var p = planoAtual();
+      if (p && p.turmas_livres) return mods.map(function (m) { return m.slug; });
+      var ids = estado.turmas.map(function (id) { return (turmas.filter(function (t) { return t.id === id; })[0] || {}).modalidade_id; });
+      return mods.filter(function (m) { return ids.indexOf(m.id) >= 0; }).map(function (m) { return m.slug; });
+    }
+  };
+};
+window.carregarDadosPlano = function () {
+  return Promise.all([
+    sb.from("planos").select("id,nome,valor_centavos,periodicidade,max_turmas,turmas_livres").eq("ativo", true).order("valor_centavos"),
+    sb.from("turmas").select("id,nome,modalidade_id,dias_semana,hora_inicio,coletiva").eq("ativa", true).order("nome"),
+    sb.from("modalidades").select("id,slug,nome").eq("ativa", true).order("ordem")
+  ]).then(function (r) { return { planos: r[0].data || [], turmas: r[1].data || [], modalidades: r[2].data || [] }; });
+};
