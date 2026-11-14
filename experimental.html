@@ -5,26 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aula experimental | ZXT - Zulu Xtreme Team</title>
   <meta name="description" content="Agende sua aula experimental de Muay Thai, Boxe, MMA ou Jiu-Jitsu na ZXT, em Natal/RN. Vem pra ZXT!">
-  <meta name="theme-color" content="#0a0a0a">
+  <meta name="theme-color" content="#070707">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Aula experimental na ZXT 🥊">
   <meta property="og:description" content="Escolha a modalidade e o horário. A gente te espera no tatame. Vem pra ZXT!">
   <meta property="og:image" content="https://zxtsistem.vercel.app/assets/og.jpg">
   <meta property="og:locale" content="pt_BR">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/favicon.png" type="image/png">
   <link rel="apple-touch-icon" href="/assets/icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,600;1,700;1,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
   <header class="topo">
     <div class="wrap">
       <a class="marca" href="/" aria-label="ZXT início">
-        <img src="/assets/logo.svg" alt="" width="42" height="42">
-        <span>Z<b>X</b>T<em class="nome-longo"> <b>·</b> ZULU XTREME TEAM</em></span>
+        <img src="/assets/logo-zxt.png" alt="ZXT" width="46" height="40">
+        <span>Zulu <b>Xtreme</b> Team</span>
       </a>
       <a class="btn btn-borda btn-sm" href="/#horarios">Ver horários</a>
     </div>
@@ -32,9 +32,13 @@
 
   <main class="wrap">
     <section class="exp-hero">
-      <h1 class="titulo">Aula experimental</h1>
-      <p class="sub">Vem pra ZXT! Leva 1 minuto.</p>
+      <p class="olho">Primeiro treino por nossa conta</p>
+      <h1 class="titulo">Aula <em>experimental</em></h1>
+      <p class="sub">Preencha em 1 minuto. A gente confirma o horário com você pela mensagem.</p>
     </section>
+
+    <div class="exp-grid">
+    <div>
 
     <form class="form" id="form-exp" novalidate>
       <div class="campo">
@@ -90,7 +94,7 @@
       </div>
 
       <p class="erro" id="erro" role="alert"></p>
-      <button class="btn btn-vermelho" type="submit" id="enviar">Agendar minha aula 🥊</button>
+      <button class="btn btn-vermelho" type="submit" id="enviar">Agendar minha aula</button>
       <p class="dica" id="dica-envio"></p>
     </form>
 
@@ -100,14 +104,27 @@
       <pre id="msg-pronta"></pre>
       <a class="btn btn-vermelho btn-sm" id="abrir-direct" href="#" target="_blank" rel="noopener">Abrir direct do Instagram</a>
     </div>
+    </div>
 
-    <p style="color:var(--cinza);font-size:14px;margin:28px 0 0;max-width:640px">Leve roupa confortável, água e chegue 10 minutos antes. Luvas e equipamentos: pergunte na mensagem se precisa trazer.</p>
+    <aside class="lado">
+      <img src="/assets/logo-zxt-completo.png" alt="Zulu Xtreme Team" width="120" height="115">
+      <h3>Como funciona</h3>
+      <ul>
+        <li>Você escolhe a modalidade e a turma</li>
+        <li>A gente confirma o dia pela mensagem</li>
+        <li>Chegue 10 minutos antes, com roupa confortável e água</li>
+        <li>Luvas e equipamentos: pergunte se precisa levar</li>
+      </ul>
+      <a class="btn btn-borda btn-sm" href="/#horarios">Ver grade completa</a>
+    </aside>
+    </div>
   </main>
 
   <footer class="rodape">
     <div class="wrap">
-      <p class="pil">Disciplina <span>•</span> Respeito <span>•</span> Foco <span>•</span> Evolução</p>
-      <p>ZXT - Zulu Xtreme Team · Av. Perimetral Sul, 500, Cidade da Esperança, Natal/RN</p>
+      <img src="/assets/logo-zxt.png" alt="ZXT" width="64" height="55" loading="lazy">
+      <p class="pil">Disciplina<span>•</span>Respeito<span>•</span>Foco<span>•</span>Evolução</p>
+      <p>ZXT · Zulu Xtreme Team · Av. Perimetral Sul, 500, Cidade da Esperança, Natal/RN</p>
       <p><a data-insta href="#">Instagram @zxtoficial</a> · © <span data-ano></span> ZXT</p>
     </div>
   </footer>

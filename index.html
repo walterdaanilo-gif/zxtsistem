@@ -5,19 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ZXT - Zulu Xtreme Team | Muay Thai, Boxe, MMA e Jiu-Jitsu em Natal</title>
   <meta name="description" content="A Fábrica de Campeões! Muay Thai, Boxe, MMA e Jiu-Jitsu na Cidade da Esperança, Natal/RN. Venha fazer uma aula experimental na ZXT.">
-  <meta name="theme-color" content="#0a0a0a">
+  <meta name="theme-color" content="#070707">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="ZXT - A Fábrica de Campeões!">
+  <meta property="og:title" content="Zulu Xtreme Team · A Fábrica de Campeões!">
   <meta property="og:description" content="Muay Thai, Boxe, MMA e Jiu-Jitsu em Natal/RN. Mais que uma equipe, uma família. Vem pra ZXT!">
   <meta property="og:image" content="https://zxtsistem.vercel.app/assets/og.jpg">
   <meta property="og:locale" content="pt_BR">
   <meta property="og:url" content="https://zxtsistem.vercel.app/">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/favicon.png" type="image/png">
   <link rel="apple-touch-icon" href="/assets/icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,600;1,700;1,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/style.css">
   <script type="application/ld+json">
   {
@@ -25,6 +25,7 @@
     "@type": "SportsActivityLocation",
     "name": "ZXT - Zulu Xtreme Team",
     "slogan": "A Fábrica de Campeões!",
+    "logo": "https://zxtsistem.vercel.app/assets/icon-512.png",
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "Av. Perimetral Sul, 500, Cidade da Esperança",
@@ -38,17 +39,29 @@
   </script>
 </head>
 <body>
+  <!-- cortes vermelhos (garras) reutilizados no hero -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="garras" viewBox="0 0 400 520">
+      <g fill="#e30613">
+        <path d="M30 520 C 70 380, 120 250, 210 120 C 150 260, 110 390, 92 520 Z" opacity=".95"/>
+        <path d="M120 520 C 160 390, 210 270, 300 150 C 240 290, 200 400, 178 520 Z" opacity=".75"/>
+        <path d="M210 520 C 240 420, 290 320, 370 230 C 320 340, 285 430, 262 520 Z" opacity=".55"/>
+        <path d="M0 470 C 20 380, 50 300, 100 230 C 70 320, 50 400, 40 470 Z" opacity=".4"/>
+      </g>
+    </symbol>
+  </svg>
+
   <header class="topo">
     <div class="wrap">
       <a class="marca" href="/" aria-label="ZXT início">
-        <img src="/assets/logo.svg" alt="" width="42" height="42">
-        <span>Z<b>X</b>T<em class="nome-longo"> <b>·</b> ZULU XTREME TEAM</em></span>
+        <img src="/assets/logo-zxt.png" alt="ZXT" width="46" height="40">
+        <span>Zulu <b>Xtreme</b> Team</span>
       </a>
       <nav class="menu" aria-label="Principal">
         <a href="#modalidades">Modalidades</a>
         <a href="#horarios">Horários</a>
         <a href="#eventos">Eventos</a>
-        <a href="#equipe">Equipe</a>
+        <a href="#loja">Loja</a>
         <a href="#onde">Onde estamos</a>
       </nav>
       <a class="btn btn-vermelho btn-sm" href="/experimental">Aula experimental</a>
@@ -57,43 +70,52 @@
 
   <main>
     <section class="hero">
+      <svg class="garras esq" aria-hidden="true"><use href="#garras"/></svg>
+      <svg class="garras dir" aria-hidden="true"><use href="#garras"/></svg>
       <div class="wrap">
         <div>
-          <p class="hero-tag">MUAY THAI • BOXE • MMA • JIU-JITSU · NATAL/RN</p>
-          <h1>A Fábrica de Campeões!</h1>
-          <p class="hero-lema">Mais que uma equipe, uma família.</p>
-          <p class="texto">Do primeiro treino ao exame de graduação, você evolui com professores que vivem a luta e uma equipe que puxa você pra cima. Treine. Evolua. Conquiste.</p>
+          <p class="hero-linha"><span>Muay Thai</span><span>Boxe</span><span>MMA</span><span>Jiu-Jitsu</span></p>
+          <h1><span class="v">Zulu</span> Xtreme <span class="v">Team</span></h1>
+          <p class="hero-slogan">A Fábrica de Campeões</p>
+          <p class="texto">Mais que uma equipe, uma família. Do primeiro treino ao exame de graduação, você evolui com professores que vivem a luta, em Natal/RN.</p>
           <div class="hero-acoes">
-            <a class="btn btn-vermelho" href="/experimental">Agendar aula experimental 🥊</a>
+            <a class="btn btn-vermelho" href="/experimental">Agendar aula experimental</a>
             <a class="btn btn-borda" data-contato href="#"><span data-icone></span><span data-rotulo>Chamar no direct</span></a>
           </div>
+          <div class="hero-numeros">
+            <div><b>4</b><span>Modalidades</span></div>
+            <div><b>06h às 21h</b><span>Turmas no dia</span></div>
+            <div><b>Sexta</b><span>Sparring da equipe</span></div>
+          </div>
         </div>
-        <img class="hero-logo" src="/assets/logo.svg" alt="Logo da ZXT" width="340" height="340">
+        <img class="hero-logo" src="/assets/logo-zxt-completo.png" alt="Logo Zulu Xtreme Team" width="412" height="396">
       </div>
     </section>
 
-    <div class="pilares-wrap"><div class="pilares" aria-label="Nossos pilares">
+    <div class="pilares" aria-label="Nossos pilares">
       <ul><li>Disciplina</li><li>Respeito</li><li>Foco</li><li>Evolução</li></ul>
-    </div></div>
+    </div>
 
     <section class="secao" id="modalidades">
       <div class="wrap">
-        <h2 class="titulo">Modalidades</h2>
-        <p class="sub">Escolha sua arte. A gente cuida do resto.</p>
+        <p class="olho">O que treinamos</p>
+        <h2 class="titulo">Escolha sua <em>arte</em></h2>
+        <p class="sub">Quatro modalidades, um mesmo padrão de treino: técnica, condicionamento e respeito no tatame.</p>
         <div class="grid-4" id="lista-modalidades"></div>
       </div>
     </section>
 
     <section class="secao secao-escura" id="horarios">
       <div class="wrap">
-        <h2 class="titulo">Grade de horários</h2>
-        <p class="sub">Tem turma cedo e tem turma à noite. Sem desculpa.</p>
+        <p class="olho">Grade de horários</p>
+        <h2 class="titulo">Tem turma <em>pra você</em></h2>
+        <p class="sub">Turmas cedo e à noite. Escolha a modalidade e veja os horários.</p>
         <div class="filtros" id="filtros" role="toolbar" aria-label="Filtrar por modalidade"></div>
         <div class="grade" id="grade" aria-live="polite"></div>
         <p class="aviso-grade" id="aviso-grade" hidden></p>
         <div class="faixa-sparring">
           <div>
-            <h3>Sexta é dia de sparring 🔥</h3>
+            <h3>Sexta é dia de sparring</h3>
             <p>Treino coletivo às 19h, aberto a alunos de todas as turmas. É onde a técnica vira luta.</p>
           </div>
           <a class="btn btn-vermelho" href="/experimental">Quero começar</a>
@@ -103,52 +125,53 @@
 
     <section class="secao" id="eventos">
       <div class="wrap">
-        <h2 class="titulo">Próximos eventos</h2>
-        <p class="sub">Aulões, exames e competições da família ZXT</p>
+        <p class="olho">Agenda da equipe</p>
+        <h2 class="titulo">Próximos <em>eventos</em></h2>
+        <p class="sub">Aulões, exames de graduação e competições da família ZXT.</p>
         <div class="eventos" id="lista-eventos"></div>
       </div>
     </section>
 
     <section class="secao secao-escura" id="equipe">
       <div class="wrap">
-        <h2 class="titulo">Nosso time</h2>
-        <p class="sub">Disciplina também é respeito por você</p>
+        <p class="olho">Quem te treina</p>
+        <h2 class="titulo">Nosso <em>time</em></h2>
+        <p class="sub">Disciplina também é respeito por você.</p>
         <div id="lista-professores"></div>
       </div>
     </section>
 
     <section class="secao" id="loja">
       <div class="wrap loja">
-        <div class="camisa" aria-hidden="true">
-          <svg viewBox="0 0 240 240">
-            <path d="M80 30l-52 26 18 44 22-8v118h104V92l22 8 18-44-52-26c-6 14-22 22-40 22s-34-8-40-22z" fill="#111" stroke="#e1141e" stroke-width="4" stroke-linejoin="round"/>
-            <text x="120" y="120" text-anchor="middle" font-family="Impact, 'Bebas Neue', sans-serif" font-size="40" font-style="italic"><tspan fill="#e1141e">Z</tspan><tspan fill="#fff">X</tspan><tspan fill="#e1141e">T</tspan></text>
-            <text x="120" y="150" text-anchor="middle" fill="#fff" font-family="'Bebas Neue', Impact, sans-serif" font-size="20" letter-spacing="3">ATLETA 2026</text>
-          </svg>
+        <div class="loja-foto">
+          <img src="/assets/camisa-atleta.jpg" alt="Camiseta Zulu Xtreme Team linha Atleta, frente e costas, preta com detalhes vermelhos" width="1000" height="1000" loading="lazy">
         </div>
         <div>
-          <h2 class="titulo">Vista a camisa</h2>
-          <p class="sub">Linha Atleta 2026</p>
+          <p class="olho">Loja ZXT</p>
+          <h2 class="titulo">Linha <em>Atleta</em></h2>
+          <p class="sub">A camisa oficial da equipe, feita para treino pesado.</p>
           <ul>
-            <li>Tecido dry fit, feito para treino pesado</li>
-            <li>Vários tamanhos, consulte a disponibilidade</li>
+            <li>Tecido dry fit furadinho: leve, respirável e confortável</li>
+            <li>Frente com o escudo ZXT, costas com "Atleta"</li>
+            <li>Vários tamanhos. Consulte a disponibilidade</li>
             <li>Retire na academia</li>
           </ul>
-          <a class="btn btn-vermelho" data-contato data-msg="Olá, ZXT! Quero a camiseta Atleta 2026. Qual tamanho tem disponível? 🔥" href="#"><span data-icone></span>Garantir a minha</a>
+          <a class="btn btn-vermelho" data-contato data-msg="Olá, ZXT! Quero a camiseta da linha Atleta. Quais tamanhos têm disponíveis?" href="#"><span data-icone></span>Garantir a minha</a>
         </div>
       </div>
     </section>
 
     <section class="secao secao-escura" id="onde">
       <div class="wrap">
-        <h2 class="titulo">Onde estamos</h2>
-        <p class="sub">Sede ZXT · Cidade da Esperança</p>
+        <p class="olho">Sede ZXT</p>
+        <h2 class="titulo">Onde <em>estamos</em></h2>
+        <p class="sub">Cidade da Esperança, Natal/RN.</p>
         <div class="local">
           <div class="info">
             <h3>Endereço</h3>
             <p>Av. Perimetral Sul, 500<br>Cidade da Esperança, Natal/RN<br>CEP 59071-550</p>
-            <h3>Fale com a gente</h3>
-            <p>Atendimento pelo WhatsApp e pelo direct do Instagram <a data-insta href="#">@zxtoficial</a>.</p>
+            <h3>Atendimento</h3>
+            <p>WhatsApp e direct do Instagram <a data-insta href="#">@zxtoficial</a></p>
             <div class="acoes">
               <a class="btn btn-vermelho btn-sm" href="https://www.google.com/maps/search/?api=1&query=Av.%20Perimetral%20Sul%2C%20500%2C%20Cidade%20da%20Esperan%C3%A7a%2C%20Natal%20RN" target="_blank" rel="noopener">Como chegar</a>
               <a class="btn btn-borda btn-sm" data-contato href="#"><span data-icone></span><span data-rotulo>Chamar no direct</span></a>
@@ -163,25 +186,27 @@
     </section>
 
     <section class="cta-final">
-      <div class="wrap">
-        <h2 class="titulo">Vem pra ZXT!</h2>
+      <div class="wrap cabeca-centro">
+        <img src="/assets/logo-zxt.png" alt="" width="110" height="95" loading="lazy">
+        <h2 class="titulo">Vem pra <em>ZXT</em></h2>
         <p>Sua primeira aula é experimental. Escolha a modalidade e o horário, a gente te espera no tatame.</p>
-        <a class="btn btn-vermelho" href="/experimental">Agendar aula experimental 🥊</a>
+        <a class="btn btn-vermelho" href="/experimental">Agendar aula experimental</a>
       </div>
     </section>
   </main>
 
   <footer class="rodape">
     <div class="wrap">
-      <p class="pil">Disciplina <span>•</span> Respeito <span>•</span> Foco <span>•</span> Evolução</p>
-      <p>ZXT - Zulu Xtreme Team · Av. Perimetral Sul, 500, Cidade da Esperança, Natal/RN</p>
+      <img src="/assets/logo-zxt.png" alt="ZXT" width="64" height="55" loading="lazy">
+      <p class="pil">Disciplina<span>•</span>Respeito<span>•</span>Foco<span>•</span>Evolução</p>
+      <p>ZXT · Zulu Xtreme Team · Av. Perimetral Sul, 500, Cidade da Esperança, Natal/RN</p>
       <p><a data-insta href="#">Instagram @zxtoficial</a> · © <span data-ano></span> ZXT</p>
     </div>
   </footer>
 
   <div class="fixo">
     <a class="btn btn-vermelho" href="/experimental">Aula experimental</a>
-    <a class="btn btn-borda" style="background:#0a0a0a" data-contato href="#" aria-label="Falar com a ZXT"><span data-icone></span></a>
+    <a class="btn btn-borda" data-contato href="#" aria-label="Falar com a ZXT"><span data-icone></span></a>
   </div>
 
   <script src="/assets/config.js"></script>
