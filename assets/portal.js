@@ -185,7 +185,7 @@
       sb.from("reservas").select("status, aulas!inner(id,inicio,status, turmas(nome))").eq("aluno_id", S.user.id).in("status", ["reservada", "espera"]).gte("aulas.inicio", agora).order("created_at"),
       sb.from("reservas").select("id, aulas!inner(inicio)", { count: "exact", head: true }).eq("aluno_id", S.user.id).eq("status", "presente").gte("aulas.inicio", inicioMes()),
       sb.from("cobrancas").select("id,descricao,vencimento,valor_final_centavos,status").eq("aluno_id", S.user.id).in("status", ["em_aberto", "atrasado"]).order("vencimento"),
-      sb.from("graduacoes_aluno").select("data, grau, graduacao_niveis(nome,cor), modalidades(nome)").eq("aluno_id", S.user.id).order("data", { ascending: false }),
+      sb.from("graduacoes_aluno").select("data, grau, graduacao_niveis(nome,cor,cor2,categoria), modalidades(nome)").eq("aluno_id", S.user.id).order("data", { ascending: false }),
       sb.from("reservas").select("id, aulas!inner(inicio)", { count: "exact", head: true }).eq("aluno_id", S.user.id).eq("status", "presente"),
       sb.rpc("meu_plano")
     ]).then(function (r) {
@@ -217,7 +217,7 @@
         (Object.keys(atual).length ? '<div class="lista">' + Object.keys(atual).map(function (k) {
           var g = atual[k];
           return '<div class="item"><div><h3>' + esc(k) + "</h3><p>" + esc(g.graduacao_niveis.nome) + (g.grau ? " · " + g.grau + "º grau" : "") + " desde " + U.data(g.data) + "</p></div>" +
-            '<span style="width:28px;height:28px;border:1px solid #444;background:' + esc(g.graduacao_niveis.cor || "#333") + '"></span></div>';
+            U.barraGrad(g.graduacao_niveis, 56) + "</div>";
         }).join("") + "</div>" : '<div class="vazio-box">Sua graduação aparece aqui quando o professor registrar.</div>') +
         "<h2>Indique um amigo</h2>" +
         '<div class="cartao"><p style="margin:0 0 12px;color:var(--cinza)">Mande seu link. Quem se cadastrar por ele fica registrado como sua indicação.</p>' +
@@ -318,7 +318,7 @@
       if (!ids.length) { tela.innerHTML = '<h1>Minha <em>graduação</em></h1><div class="vazio-box">Matricule-se numa turma para acompanhar sua graduação.</div>'; return; }
       return Promise.all([
         sb.from("graduacao_niveis").select("*").in("modalidade_id", ids).eq("infantil", false).order("ordem").then(chk),
-        sb.from("graduacoes_aluno").select("*, graduacao_niveis(nome,ordem,cor)").eq("aluno_id", S.user.id).order("data", { ascending: false }).then(chk),
+        sb.from("graduacoes_aluno").select("*, graduacao_niveis(nome,ordem,cor,cor2,categoria)").eq("aluno_id", S.user.id).order("data", { ascending: false }).then(chk),
         sb.from("graduacao_requisitos").select("*").order("ordem").then(chk),
         sb.from("aluno_tecnicas").select("requisito_id").eq("aluno_id", S.user.id).then(chk),
         sb.from("reservas").select("aulas!inner(inicio, turmas!inner(modalidade_id))").eq("aluno_id", S.user.id).eq("status", "presente").then(chk)
@@ -334,7 +334,8 @@
           var aulas = pres.filter(function (p) { return p.aulas.turmas.modalidade_id === mid && p.aulas.inicio.slice(0, 10) >= desde; }).length;
           var meses = Math.floor((Date.now() - new Date(desde + "T12:00:00")) / (30.44 * 864e5));
           html += '<div class="cartao"><h2 style="margin:0 0 6px">' + esc(mods[mid]) + "</h2>" +
-            '<p style="margin:0 0 14px;color:var(--cinza)">Atual: <b style="color:#fff">' + (atual ? esc(atual.graduacao_niveis.nome) + (atual.grau ? " · " + atual.grau + "º grau" : "") : "Sem graduação registrada") + "</b></p>";
+            '<p style="margin:0 0 14px;color:var(--cinza)">Atual: <b style="color:#fff">' + (atual ? esc(atual.graduacao_niveis.nome) + (atual.grau ? " · " + atual.grau + "º grau" : "") + "</b> " + U.barraGrad(atual.graduacao_niveis, 56) +
+              (atual.graduacao_niveis.categoria ? ' <span class="tag neutro">' + esc(atual.graduacao_niveis.categoria) + "</span>" : "") : "Sem graduação registrada</b>") + "</p>";
           if (prox) {
             var rq = reqs.filter(function (q) { return q.nivel_id === prox.id; });
             var ok = rq.filter(function (q) { return feitas.indexOf(q.id) >= 0; }).length;
@@ -1028,7 +1029,7 @@
         var prox = lista.filter(function (n) { return n.ordem > ordemAtual; })[0];
         var rq = prox ? reqs.filter(function (q) { return q.nivel_id === prox.id; }) : [];
         html += '<div class="cartao" style="margin-bottom:10px"><h3 style="margin:0 0 4px;font-family:var(--display);font-style:italic;text-transform:uppercase;font-size:20px">' + esc(m.nome) + "</h3>" +
-          '<p style="margin:0 0 8px;font-size:14px">Atual: <b>' + (atual ? esc(nomeGrad(atual)) + "</b> desde " + U.data(atual.data) : "sem registro</b>") + "</p>" +
+          '<p style="margin:0 0 8px;font-size:14px">Atual: <b>' + (atual ? esc(nomeGrad(atual)) + "</b> " + U.barraGrad(nivelPorId[atual.nivel_id], 48) + " desde " + U.data(atual.data) : "sem registro</b>") + "</p>" +
           (prox ? '<p style="margin:0 0 6px;font-size:13px;color:var(--cinza)">Próximo: ' + esc(prox.nome) + (prox.tempo_minimo_meses ? " · mínimo " + prox.tempo_minimo_meses + " meses" : "") + (prox.aulas_minimas ? " · " + prox.aulas_minimas + " aulas" : "") + "</p>" : "") +
           (rq.length ? '<div style="margin:6px 0 4px">' + rq.map(function (q) {
             return '<label class="check" style="font-size:14px"><input type="checkbox" data-tec="' + q.id + '"' + (feitas.indexOf(q.id) >= 0 ? " checked" : "") + "> " + esc(q.descricao) + "</label>";
@@ -1120,7 +1121,10 @@
           var rq = reqs.filter(function (q) { return q.nivel_id === n.id; });
           return '<div class="cartao" data-nivel="' + n.id + '">' +
             '<div class="linha2"><div class="campo"><label>Nome</label><input data-c="nome" value="' + esc(n.nome) + '"></div>' +
-            '<div class="campo"><label>Cor</label><input data-c="cor" type="color" value="' + esc(n.cor || "#888888") + '" style="height:46px;padding:4px"></div></div>' +
+            '<div class="campo"><label>Cor ' + U.barraGrad(n, 48) + '</label><input data-c="cor" type="color" value="' + esc(n.cor || "#888888") + '" style="height:46px;padding:4px"></div></div>' +
+            '<div class="linha2" style="margin-top:10px"><div class="campo"><label><input type="checkbox" data-ponta' + (n.cor2 ? " checked" : "") + '> Ponta de outra cor</label>' +
+              '<input data-c="cor2" type="color" value="' + esc(n.cor2 || "#ffffff") + '" style="height:46px;padding:4px"></div>' +
+            '<div class="campo"><label>Categoria</label><input data-c="categoria" value="' + esc(n.categoria || "") + '" placeholder="Ex.: Iniciante"></div></div>' +
             '<div class="linha2" style="margin-top:10px"><div class="campo"><label>Ordem</label><input data-c="ordem" type="number" value="' + n.ordem + '"></div>' +
             '<div class="campo"><label>Graus (0 = sem grau)</label><input data-c="graus_max" type="number" min="0" max="10" value="' + n.graus_max + '"></div></div>' +
             '<div class="linha2" style="margin-top:10px"><div class="campo"><label>Tempo mínimo (meses)</label><input data-c="tempo_minimo_meses" type="number" min="0" value="' + n.tempo_minimo_meses + '"></div>' +
@@ -1142,6 +1146,8 @@
             var k = i.getAttribute("data-c");
             d[k] = i.type === "checkbox" ? i.checked : (i.type === "number" ? parseInt(i.value, 10) || 0 : i.value.trim());
           });
+          if (!card.querySelector("[data-ponta]").checked) d.cor2 = null;
+          if (!d.categoria) d.categoria = null;
           if (m.sistema === "prajied" && /faixa/i.test(d.nome)) return U.toast('No Muay Thai é prajied, não "faixa".', "erro");
           sb.from("graduacao_niveis").update(d).eq("id", b.getAttribute("data-salvar-nivel")).then(function (x) { if (x.error) return U.erro(x.error); U.toast("Salvo"); });
         }

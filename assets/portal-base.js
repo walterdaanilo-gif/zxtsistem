@@ -222,3 +222,12 @@ window.carregarDadosPlano = function () {
     sb.from("modalidades").select("id,slug,nome").eq("ativa", true).order("ordem")
   ]).then(function (r) { return { planos: r[0].data || [], turmas: r[1].data || [], modalidades: r[2].data || [] }; });
 };
+
+// faixa/prajied colorido: cor única ou duas cores (ex.: "ponta branca")
+U.corGrad = function (n) {
+  if (!n) return "#333";
+  return n.cor2 ? "linear-gradient(90deg, " + n.cor + " 0 55%, " + n.cor2 + " 55% 100%)" : (n.cor || "#333");
+};
+U.barraGrad = function (n, largura) {
+  return '<span class="barra-grad" style="width:' + (largura || 64) + 'px;background:' + U.esc(U.corGrad(n)) + '"></span>';
+};
