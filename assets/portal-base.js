@@ -98,13 +98,68 @@ window.PlanoPicker = function (el, opts) {
     return (t.dias_semana || []).map(function (d) { return DIAS[d]; }).join(" e ") + " às " + String(t.hora_inicio || "").slice(0, 5).replace(":00", "h").replace(":", "h");
   }
   function planoAtual() { return planos.filter(function (p) { return p.id === estado.plano; })[0]; }
+
+  // ---- números reais da grade para explicar cada plano (sem inventar dado) ----
+  var todas = opts.turmas || [];
+  var aulasTurmasSemana = todas.filter(function (t) { return !t.coletiva; }).reduce(function (s, t) { return s + (t.dias_semana || []).length; }, 0);
+  var sparringSemana = todas.filter(function (t) { return t.coletiva; }).reduce(function (s, t) { return s + (t.dias_semana || []).length; }, 0) || 1;
+  var MESES = { mensal: 1, trimestral: 3, semestral: 6, anual: 12 };
+  function treinosSemana(x) { return x.turmas_livres ? aulasTurmasSemana + sparringSemana : (x.max_turmas || 1) * 2 + sparringSemana; }
+  function treinosMes(x) { return Math.round(treinosSemana(x) * 52 / 12); }
+  function valorMes(x) { return x.valor_centavos / (MESES[x.periodicidade] || 1); }
+  function custoTreino(x) { return valorMes(x) / treinosMes(x); }
+  var mensais = planos.slice().sort(function (a, b) { return valorMes(a) - valorMes(b); });
+  var maisBarato = mensais[0] && mensais[0].id;
+  var melhorCusto = planos.slice().sort(function (a, b) { return custoTreino(a) - custoTreino(b); })[0];
+  melhorCusto = melhorCusto && melhorCusto.id;
+  function selo(x) {
+    if (!opts.explicar) return "";
+    if (x.id === melhorCusto && planos.length > 1) return '<span class="selo-plano">Melhor custo por treino</span>';
+    if (x.id === maisBarato && planos.length > 1) return '<span class="selo-plano claro">Menor investimento</span>';
+    return "";
+  }
+  function explicacao(x) {
+    var tsem = treinosSemana(x), tmes = treinosMes(x), custo = U.reais(Math.round(custoTreino(x)));
+    var idx = mensais.indexOf(x), prox = mensais[idx + 1];
+    var paraQuem, itens;
+    if (x.turmas_livres) {
+      paraQuem = "Para quem quer treinar sem limite: competir, chegar forte no exame de graduação ou encaixar o treino no horário que der.";
+      itens = ["Todas as turmas e todos os horários da grade, de todas as modalidades",
+               "Até " + tsem + " treinos por semana (cerca de " + tmes + " por mês)",
+               "Perdeu o treino da manhã? Vai à noite. Sem ficar preso a uma turma",
+               "Sparring de sexta com a equipe toda"];
+    } else if ((x.max_turmas || 1) >= 2) {
+      paraQuem = "Para quem já pegou o ritmo e quer evoluir mais rápido: o dobro de turmas do plano de entrada.";
+      itens = [x.max_turmas + " turmas à sua escolha: 2 modalidades (ex.: Muay Thai + Boxe) ou 2 turmas da mesma modalidade",
+               tsem + " treinos por semana (cerca de " + tmes + " por mês)",
+               "Mais repetição de técnica por semana, que é o que faz a graduação andar",
+               "Sparring de sexta com a equipe toda"];
+    } else {
+      paraQuem = "Para começar com o pé direito ou para quem tem a rotina corrida: um compromisso fixo e possível de cumprir.";
+      itens = ["1 turma à sua escolha, em qualquer modalidade",
+               "2 aulas fixas por semana + sparring de sexta = " + tsem + " treinos por semana",
+               "Cerca de " + tmes + " treinos por mês para criar o hábito",
+               "Pode subir de plano quando quiser, é só falar com a recepção"];
+    }
+    var subir = "";
+    if (prox) {
+      var dif = Math.round(valorMes(prox) - valorMes(x)), ganho = treinosSemana(prox) - tsem;
+      if (dif > 0 && ganho > 0) subir = '<p class="pp-subir">💡 Por <b>+ ' + U.reais(dif) + "/mês</b> no " + U.esc(prox.nome) + " você ganha <b>" + ganho + " treino" + (ganho > 1 ? "s" : "") +
+        " a mais por semana</b>" + (custoTreino(prox) < custoTreino(x) ? " e o treino sai mais barato: " + U.reais(Math.round(custoTreino(prox))) + " cada" : "") + ".</p>";
+    }
+    return '<div class="pp-explica"><p class="pp-explica-t">Como funciona o ' + U.esc(x.nome) + "</p>" +
+      '<p class="pp-para">' + paraQuem + "</p><ul>" + itens.map(function (i) { return "<li>" + U.esc(i) + "</li>"; }).join("") + "</ul>" +
+      '<p class="pp-custo">Sai a <b>' + custo + " por treino</b> (" + U.reais(Math.round(valorMes(x))) + "/mês ÷ " + tmes + " treinos)</p>" + subir + "</div>";
+  }
+
   function desenhar() {
     var p = planoAtual();
     var html = '<div class="planos-op">' + planos.map(function (x) {
-      return '<label class="plano-op' + (x.id === estado.plano ? " sel" : "") + '"><input type="radio" name="pp-plano" value="' + x.id + '"' + (x.id === estado.plano ? " checked" : "") + ">" +
+      return '<label class="plano-op' + (x.id === estado.plano ? " sel" : "") + '"><input type="radio" name="pp-plano" value="' + x.id + '"' + (x.id === estado.plano ? " checked" : "") + ">" + selo(x) +
         "<b>" + U.esc(x.nome) + "</b>" + (opts.mostrarValor !== false ? "<span class=\"valor\">" + U.reais(x.valor_centavos) + "<small>/" + (x.periodicidade || "mês").replace("mensal", "mês") + "</small></span>" : "") +
         "<span class=\"regra\">" + U.esc(regra(x)) + "</span></label>";
     }).join("") + (opts.permitirSemPlano ? '<label class="plano-op' + (!estado.plano ? " sel" : "") + '"><input type="radio" name="pp-plano" value=""' + (!estado.plano ? " checked" : "") + "><b>Sem plano</b><span class=\"regra\">Bolsista ou isento: turmas escolhidas pela equipe</span></label>" : "") + "</div>";
+    if (opts.explicar && p) html += explicacao(p);
     if (p && p.turmas_livres) {
       html += '<p class="pp-aviso">Plano livre: treina em qualquer turma e horário. Não precisa escolher turma.</p>';
     } else if (p || (opts.permitirSemPlano && !estado.plano)) {

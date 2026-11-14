@@ -15,14 +15,15 @@
     grupo: '<circle cx="9" cy="8" r="3.5"/><path d="M2 20c.8-3.5 3.5-5 7-5s6.2 1.5 7 5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.4 2.2 4 5"/>',
     painel: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     aprovar: '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
-    funil: '<path d="M3 4h18l-7 8v7l-4 2v-9z"/>'
+    funil: '<path d="M3 4h18l-7 8v7l-4 2v-9z"/>',
+    comunidade: '<path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>'
   };
   function ic(n) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + I[n] + "</svg>"; }
 
   var MENUS = {
-    aluno: [["inicio", "Início", "casa"], ["agenda", "Agenda", "agenda"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["graduacao", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
-    professor: [["chamada", "Chamada", "chamada"], ["alunos", "Alunos", "grupo"], ["perfil", "Perfil", "perfil"]],
-    admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"]]
+    aluno: [["comunidade", "Comunidade", "comunidade"], ["inicio", "Início", "casa"], ["agenda", "Agenda", "agenda"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["graduacao", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
+    professor: [["chamada", "Chamada", "chamada"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["perfil", "Perfil", "perfil"]],
+    admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"]]
   };
   var NOME_PAPEL = { aluno: "Aluno", professor: "Professor", admin: "Administração" };
 
@@ -762,6 +763,218 @@
     });
   };
 
+
+  // =================================================================== COMUNIDADE
+  var COM = { limite: 20, filtro: "", autores: null, mods: null };
+
+  function comprimirImagem(file) {
+    return new Promise(function (ok) {
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () {
+        var max = 1600, w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, max / Math.max(w, h));
+        var c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (b) { ok(b || file); }, "image/jpeg", 0.82);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); ok(file); };
+      img.src = url;
+    });
+  }
+
+  function tempoAtras(iso) {
+    var s = (Date.now() - new Date(iso)) / 1000;
+    if (s < 60) return "agora";
+    if (s < 3600) return Math.floor(s / 60) + " min";
+    if (s < 86400) return Math.floor(s / 3600) + " h";
+    if (s < 7 * 86400) return Math.floor(s / 86400) + " d";
+    return U.data(iso);
+  }
+
+  VIEWS.comunidade = function () {
+    var staff = S.modo !== "aluno", admin = S.modo === "admin";
+    var pAutores = COM.autores ? Promise.resolve(COM.autores) : sb.rpc("perfis_publicos").then(function (r) {
+      COM.autores = {}; (r.data || []).forEach(function (p) { COM.autores[p.id] = p; }); return COM.autores;
+    });
+    var pMods = COM.mods ? Promise.resolve(COM.mods) : sb.from("modalidades").select("id,nome").eq("ativa", true).order("ordem").then(function (r) { COM.mods = r.data || []; return COM.mods; });
+    var q = sb.from("posts").select("id,autor_id,texto,modalidade_id,fixado,oculto,created_at, post_midias(url,tipo,ordem), post_curtidas(user_id), comentarios(id,autor_id,texto,oculto,created_at)")
+      .order("fixado", { ascending: false }).order("created_at", { ascending: false }).limit(COM.limite);
+    if (COM.filtro) q = q.eq("modalidade_id", COM.filtro);
+    var pDen = staff ? sb.from("denuncias").select("id,motivo,post_id,comentario_id,created_at").eq("resolvida", false) : Promise.resolve({ data: [] });
+    return Promise.all([pAutores, pMods, q.then(chk), pDen]).then(function (r) {
+      var autores = r[0], mods = r[1], posts = r[2], dens = (r[3].data || []);
+      var nomeMod = {}; mods.forEach(function (m) { nomeMod[m.id] = m.nome; });
+      var paths = []; posts.forEach(function (p) { (p.post_midias || []).forEach(function (m) { paths.push(m.url); }); });
+      return (paths.length ? sb.storage.from("comunidade").createSignedUrls(paths, 3600) : Promise.resolve({ data: [] })).then(function (sr) {
+        var urls = {}; (sr.data || []).forEach(function (x) { if (x.signedUrl) urls[x.path] = x.signedUrl; });
+        function quem(id) { var a = autores[id] || (id === S.user.id ? { nome: S.perfil.nome, foto_url: S.perfil.foto_url } : null); return a ? a : { nome: "Membro ZXT" }; }
+        function avatar(a) {
+          return a.foto_url ? '<img class="av" src="' + esc(a.foto_url) + '" alt="">' : '<span class="av">' + esc((a.nome || "?").charAt(0).toUpperCase()) + "</span>";
+        }
+        var denPorPost = {}; dens.forEach(function (d) { if (d.post_id) denPorPost[d.post_id] = (denPorPost[d.post_id] || 0) + 1; });
+
+        var html = "<h1>Comunidade <em>ZxT</em></h1><p class=\"sub\">Treino, conquista, bastidor de aula. Posta aí, família ZxT 🥊</p>" +
+          // composer
+          '<form class="cartao post-novo" id="post-novo">' +
+          '<textarea id="pn-texto" rows="3" maxlength="2000" placeholder="Como foi o treino hoje?"></textarea>' +
+          '<div id="pn-prev" class="pn-prev"></div>' +
+          '<div class="pn-barra"><label class="btn-mini claro pn-foto">📷 Foto ou vídeo<input type="file" id="pn-arq" accept="image/*,video/mp4,video/quicktime" multiple hidden></label>' +
+          '<select class="sel" id="pn-mod"><option value="">Toda a equipe</option>' + mods.map(function (m) { return '<option value="' + m.id + '">' + esc(m.nome) + "</option>"; }).join("") + "</select>" +
+          (admin ? '<label class="check" style="font-size:13px"><input type="checkbox" id="pn-fixar"> Fixar aviso</label>' : "") +
+          '<button class="btn-mini" type="submit" id="pn-enviar">Publicar</button></div></form>' +
+          // filtros
+          '<div class="filtros" style="margin-top:16px"><button class="filtro" data-fmod="" aria-pressed="' + (!COM.filtro) + '">Todas</button>' +
+          mods.map(function (m) { return '<button class="filtro" data-fmod="' + m.id + '" aria-pressed="' + (COM.filtro === m.id) + '">' + esc(m.nome) + "</button>"; }).join("") + "</div>" +
+          (staff && dens.length ? '<div class="cartao" style="border-color:#5a3a00;margin-bottom:12px"><b style="color:#f2a20c">⚠ ' + dens.length + " denúncia(s) aguardando análise.</b> Os posts denunciados estão marcados abaixo.</div>" : "");
+
+        if (!posts.length) html += '<div class="vazio-box">Nenhuma postagem ainda. Abre os trabalhos 🔥</div>';
+        html += '<div class="feed">' + posts.map(function (p) {
+          var a = quem(p.autor_id), curtidas = (p.post_curtidas || []), curti = curtidas.some(function (c) { return c.user_id === S.user.id; });
+          var midias = (p.post_midias || []).sort(function (x, y) { return x.ordem - y.ordem; });
+          var coms = (p.comentarios || []).sort(function (x, y) { return x.created_at < y.created_at ? -1 : 1; });
+          var meu = p.autor_id === S.user.id;
+          return '<article class="post' + (p.fixado ? " fixado" : "") + (p.oculto ? " oculto" : "") + '" data-post="' + p.id + '">' +
+            '<header class="post-topo">' + avatar(a) + '<div><b>' + esc(a.nome || "Membro ZXT") + "</b><span>" + tempoAtras(p.created_at) +
+            (p.modalidade_id ? " · " + esc(nomeMod[p.modalidade_id] || "") : "") + "</span></div>" +
+            (p.fixado ? '<span class="tag info">Fixado</span>' : "") + (p.oculto ? '<span class="tag neutro">Oculto</span>' : "") +
+            (denPorPost[p.id] ? '<span class="tag atencao">' + denPorPost[p.id] + " denúncia(s)</span>" : "") +
+            '<button class="post-menu" data-menu="' + p.id + '" aria-label="Opções">⋯</button></header>' +
+            (p.texto ? '<p class="post-texto">' + esc(p.texto) + "</p>" : "") +
+            (midias.length ? '<div class="post-midias n' + Math.min(midias.length, 4) + '">' + midias.map(function (m) {
+              var u = urls[m.url]; if (!u) return "";
+              return m.tipo === "video" ? '<video src="' + esc(u) + '" controls playsinline preload="metadata"></video>' : '<img src="' + esc(u) + '" alt="Foto da postagem" loading="lazy">';
+            }).join("") + "</div>" : "") +
+            '<div class="post-acoes"><button class="curtir' + (curti ? " on" : "") + '" data-curtir="' + p.id + '">' + (curti ? "🔥" : "🤍") + " " + curtidas.length + "</button>" +
+            '<button data-abrir-com="' + p.id + '">💬 ' + coms.length + "</button></div>" +
+            '<div class="post-coms" id="coms-' + p.id + '"' + (coms.length > 2 ? " data-recolhido" : "") + ">" +
+            coms.map(function (c, i) {
+              var ca = quem(c.autor_id);
+              return '<p class="com' + (coms.length > 2 && i < coms.length - 2 ? " antigo" : "") + (c.oculto ? " oculto" : "") + '"><b>' + esc(ca.nome || "Membro ZXT") + "</b> " + esc(c.texto) +
+                ((c.autor_id === S.user.id || staff) ? ' <button class="link-mini" data-com-menu="' + c.id + '" data-com-autor="' + c.autor_id + '">⋯</button>' : ' <button class="link-mini" data-denunciar-com="' + c.id + '">denunciar</button>') + "</p>";
+            }).join("") +
+            (coms.length > 2 ? '<button class="link-mini ver-todos" data-ver-todos="' + p.id + '">Ver os ' + coms.length + " comentários</button>" : "") +
+            '<form class="com-novo" data-comentar="' + p.id + '"><input placeholder="Comentar..." maxlength="500"><button class="btn-mini">Enviar</button></form></div>' +
+            (meu || staff ? "" : "") + "</article>";
+        }).join("") + "</div>" +
+          (posts.length >= COM.limite ? '<div style="text-align:center;margin-top:14px"><button class="btn-mini claro" id="ver-mais">Ver mais postagens</button></div>' : "");
+        tela.innerHTML = html;
+
+        // --- novo post ---
+        var arquivos = [];
+        $("#pn-arq").onchange = function () {
+          Array.prototype.slice.call(this.files).forEach(function (f) {
+            var video = /^video\//.test(f.type);
+            if (video && f.size > 25 * 1024 * 1024) return U.toast("Vídeo acima de 25 MB. Corte um trecho menor.", "erro");
+            if (!video && !/^image\//.test(f.type)) return;
+            if (arquivos.length >= 4) return U.toast("Até 4 arquivos por postagem.", "erro");
+            arquivos.push(f);
+          });
+          this.value = "";
+          $("#pn-prev").innerHTML = arquivos.map(function (f, i) {
+            var u = URL.createObjectURL(f);
+            return '<div class="pn-item">' + (/^video\//.test(f.type) ? '<video src="' + u + '" muted></video>' : '<img src="' + u + '" alt="">') + '<button type="button" data-tirar="' + i + '">×</button></div>';
+          }).join("");
+        };
+        $("#pn-prev").onclick = function (e) { var b = e.target.closest("[data-tirar]"); if (!b) return; arquivos.splice(+b.getAttribute("data-tirar"), 1); $("#pn-arq").onchange.call({ files: [], value: "" }); };
+        $("#post-novo").onsubmit = function (e) {
+          e.preventDefault();
+          var texto = $("#pn-texto").value.trim();
+          if (!texto && !arquivos.length) return U.toast("Escreva algo ou escolha uma foto.", "erro");
+          var bt = $("#pn-enviar"); bt.disabled = true; bt.textContent = "Publicando...";
+          var dados = { autor_id: S.user.id, texto: texto || null, modalidade_id: $("#pn-mod").value || null };
+          if (admin && $("#pn-fixar") && $("#pn-fixar").checked) dados.fixado = true;
+          sb.from("posts").insert(dados).select().single().then(function (r) {
+            if (r.error) throw r.error;
+            var post = r.data;
+            return Promise.all(arquivos.map(function (f, i) {
+              var video = /^video\//.test(f.type);
+              return (video ? Promise.resolve(f) : comprimirImagem(f)).then(function (blob) {
+                var ext = video ? (f.type === "video/quicktime" ? "mov" : "mp4") : "jpg";
+                var path = S.user.id + "/" + post.id + "-" + i + "." + ext;
+                return sb.storage.from("comunidade").upload(path, blob, { contentType: video ? f.type : "image/jpeg", upsert: false }).then(function (u) {
+                  if (u.error) throw u.error;
+                  return sb.from("post_midias").insert({ post_id: post.id, url: path, tipo: video ? "video" : "imagem", ordem: i }).then(function (m) { if (m.error) throw m.error; });
+                });
+              });
+            }));
+          }).then(function () { U.toast("Postado 🔥"); rotear(); })
+            .catch(function (er) { U.erro(er); bt.disabled = false; bt.textContent = "Publicar"; });
+        };
+
+        // --- interações ---
+        tela.onclick = function (e) {
+          var b;
+          if ((b = e.target.closest("[data-fmod]"))) { COM.filtro = b.getAttribute("data-fmod"); COM.limite = 20; return rotear(); }
+          if (e.target.id === "ver-mais") { COM.limite += 20; return rotear(); }
+          if ((b = e.target.closest("[data-curtir]"))) {
+            var pid = b.getAttribute("data-curtir"), on = b.classList.contains("on");
+            var n = parseInt(b.textContent.replace(/\D/g, ""), 10) || 0;
+            b.classList.toggle("on"); b.textContent = (on ? "🤍 " + (n - 1) : "🔥 " + (n + 1));
+            (on ? sb.from("post_curtidas").delete().eq("post_id", pid).eq("user_id", S.user.id) : sb.from("post_curtidas").insert({ post_id: pid, user_id: S.user.id }))
+              .then(function (x) { if (x.error) U.erro(x.error); });
+            return;
+          }
+          if ((b = e.target.closest("[data-abrir-com]"))) { var inp = tela.querySelector('[data-comentar="' + b.getAttribute("data-abrir-com") + '"] input'); if (inp) inp.focus(); return; }
+          if ((b = e.target.closest("[data-ver-todos]"))) { var box = $("#coms-" + b.getAttribute("data-ver-todos")); box.removeAttribute("data-recolhido"); b.remove(); return; }
+          if ((b = e.target.closest("[data-menu]"))) return menuPost(posts.filter(function (p) { return p.id === b.getAttribute("data-menu"); })[0]);
+          if ((b = e.target.closest("[data-denunciar-com]"))) return denunciar(null, b.getAttribute("data-denunciar-com"));
+          if ((b = e.target.closest("[data-com-menu]"))) {
+            var cid = b.getAttribute("data-com-menu"), dono = b.getAttribute("data-com-autor") === S.user.id;
+            var bots = [["Fechar", null, "claro"]];
+            if (staff) bots.push(["Ocultar comentário", function () { return sb.from("comentarios").update({ oculto: true }).eq("id", cid).then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Comentário oculto"); rotear(); }); }, "claro"]);
+            if (dono || admin) bots.push(["Apagar", function () { return sb.from("comentarios").delete().eq("id", cid).then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Comentário apagado"); rotear(); }); }]);
+            return modal("Comentário", '<p style="color:var(--cinza)">O que deseja fazer?</p>', bots);
+          }
+        };
+        tela.onsubmit = function (e) {
+          var f = e.target.closest("[data-comentar]"); if (!f) return;
+          e.preventDefault();
+          var inp = f.querySelector("input"), txt = inp.value.trim(); if (!txt) return;
+          inp.disabled = true;
+          sb.from("comentarios").insert({ post_id: f.getAttribute("data-comentar"), autor_id: S.user.id, texto: txt }).then(function (x) {
+            inp.disabled = false; if (x.error) return U.erro(x.error); rotear();
+          });
+        };
+
+        function denunciar(postId, comId) {
+          modal("Denunciar", '<div class="campo"><label for="dn-m">O que está errado?</label><select class="sel" id="dn-m"><option>Ofensivo ou desrespeitoso</option><option>Conteúdo impróprio</option><option>Exposição de outra pessoa sem autorização</option><option>Spam ou propaganda</option><option>Outro</option></select></div>' +
+            '<p style="color:var(--cinza);font-size:13px">A equipe ZXT recebe e analisa. Quem postou não sabe quem denunciou.</p>',
+            [["Cancelar", null, "claro"], ["Enviar denúncia", function (g) {
+              return sb.from("denuncias").insert({ post_id: postId, comentario_id: comId, autor_id: S.user.id, motivo: g.querySelector("#dn-m").value }).then(function (x) {
+                if (x.error) { U.erro(/duplicate|unique/i.test(x.error.message) ? { message: "Você já denunciou isso. A equipe vai analisar." } : x.error); return false; }
+                U.toast("Denúncia enviada. Obrigado por cuidar da família ZxT.");
+              });
+            }]]);
+        }
+        function menuPost(p) {
+          var meu = p.autor_id === S.user.id, bots = [["Fechar", null, "claro"]];
+          if (!meu) bots.push(["Denunciar", function () { denunciar(p.id, null); }, "claro"]);
+          if (staff) bots.push([p.oculto ? "Mostrar de novo" : "Ocultar post", function () {
+            return sb.from("posts").update({ oculto: !p.oculto }).eq("id", p.id).then(function (x) {
+              if (x.error) { U.erro(x.error); return false; }
+              if (!p.oculto) sb.from("denuncias").update({ resolvida: true }).eq("post_id", p.id).then(function () {});
+              U.toast(p.oculto ? "Post visível de novo" : "Post oculto para os alunos"); rotear();
+            });
+          }, "claro"]);
+          if (staff && denPorPost[p.id]) bots.push(["Manter e encerrar denúncias", function () {
+            return sb.from("denuncias").update({ resolvida: true }).eq("post_id", p.id).then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Denúncias encerradas"); rotear(); });
+          }, "claro"]);
+          if (admin) bots.push([p.fixado ? "Desafixar" : "Fixar no topo", function () {
+            return sb.from("posts").update({ fixado: !p.fixado }).eq("id", p.id).then(function (x) { if (x.error) { U.erro(x.error); return false; } rotear(); });
+          }, "claro"]);
+          if (meu || admin) bots.push(["Apagar post", function () {
+            var arqs = (p.post_midias || []).map(function (m) { return m.url; });
+            return sb.from("posts").delete().eq("id", p.id).then(function (x) {
+              if (x.error) { U.erro(x.error); return false; }
+              if (arqs.length) sb.storage.from("comunidade").remove(arqs).then(function () {});
+              U.toast("Post apagado"); rotear();
+            });
+          }]);
+          modal("Postagem", '<p style="color:var(--cinza)">O que deseja fazer com esta postagem?</p>', bots);
+        }
+      });
+    });
+  };
 
   // troca de plano e turmas de quem já é aluno (admin)
   function planoETurmas(alunoId, perfil) {
