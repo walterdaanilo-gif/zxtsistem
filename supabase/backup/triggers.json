@@ -1,0 +1,1 @@
+[{"tabela":"auth.users","trigger_name":"on_auth_user_created","action_statement":"EXECUTE FUNCTION handle_new_user()"},{"tabela":"public.profiles","trigger_name":"protect_profile","action_statement":"EXECUTE FUNCTION protect_profile_fields()"}]
