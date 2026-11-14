@@ -189,3 +189,5 @@ body.portal { background: var(--preto); padding-bottom: 84px; }
 
 /* itens de grid não podem alargar a página no celular */
 .app-corpo > * { min-width: 0; }
+
+.barra-grad { display: inline-block; height: 14px; border: 1px solid #555; vertical-align: middle; flex: 0 0 auto; }
