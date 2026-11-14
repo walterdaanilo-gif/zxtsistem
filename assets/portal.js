@@ -61,6 +61,16 @@
   function primeiroNome(n) { return (n || "Guerreiro").split(" ")[0]; }
   function inicioMes() { var h = U.hojeISO(); return h.slice(0, 8) + "01"; }
   function chk(r) { if (r.error) throw r.error; return r.data; }
+  // Leva assinaturas para o Asaas (cria a recorrência / cancela a antiga). Só admin.
+  function syncAsaas(alunoId, silencioso) {
+    return sb.functions.invoke("asaas-sincronizar", { body: alunoId ? { aluno_id: alunoId } : {} }).then(function (x) {
+      if (x.error) { U.toast("Asaas: não sincronizou agora. Use o botão Sincronizar com Asaas no Financeiro.", "erro"); return null; }
+      var d = x.data || { criadas: [], canceladas: 0, erros: [] };
+      if (d.erros && d.erros.length) U.toast("Asaas: " + d.erros.map(function (e) { return (e.aluno ? e.aluno + ": " : "") + e.erro; }).join(" | "), "erro");
+      else if (!silencioso || d.criadas.length || d.canceladas) U.toast("Asaas (" + d.ambiente + "): " + d.criadas.length + " recorrência(s) criada(s), " + d.canceladas + " cancelada(s)");
+      return d;
+    });
+  }
   function falhou(e) { tela.innerHTML = '<div class="vazio-box">Não deu para carregar agora. ' + esc(e.message || e) + "</div>"; }
 
   // ---------------------------------------------------------------- sessão e papéis
@@ -321,11 +331,12 @@
 
   VIEWS.financeiro = function () {
     return sb.from("cobrancas").select("*").eq("aluno_id", S.user.id).order("vencimento", { ascending: false }).then(chk).then(function (cs) {
-      tela.innerHTML = "<h1>Minhas <em>mensalidades</em></h1><p class=\"sub\">Pagamento online por Pix, boleto e cartão entra na próxima etapa. Por enquanto, pague na recepção ou pelo Pix da academia.</p>" +
+      tela.innerHTML = "<h1>Minhas <em>mensalidades</em></h1><p class=\"sub\">Pague pelo botão Pagar: Pix ou cartão. Pagando no cartão, as próximas mensalidades caem sozinhas no mesmo cartão.</p>" +
         (cs.length ? '<div class="lista">' + cs.map(function (c) {
           return '<div class="item' + (c.status === "atrasado" ? " destaque" : "") + '"><div><h3>' + U.reais(c.valor_final_centavos) + "</h3><p>" + esc(c.descricao) +
             " · vence " + U.data(c.vencimento) + (c.desconto_centavos ? " · desconto de " + U.reais(c.desconto_centavos) : "") +
-            (c.pago_em ? " · pago em " + U.data(c.pago_em) : "") + "</p></div>" + tagStatus(c.status) + "</div>";
+            (c.pago_em ? " · pago em " + U.data(c.pago_em) : "") + "</p></div><div class=\"acoes\">" + tagStatus(c.status) +
+            ((c.status === "em_aberto" || c.status === "atrasado") && c.link_pagamento ? ' <a class="btn-mini verde" target="_blank" rel="noopener" href="' + esc(c.link_pagamento) + '">Pagar</a>' : "") + "</div></div>";
         }).join("") + "</div>" : '<div class="vazio-box">Nenhuma mensalidade lançada ainda.</div>');
     });
   };
@@ -653,7 +664,7 @@
               var er = pickAp.erro(); if (er) { U.toast(er, "erro"); return false; }
               var v = pickAp.valor();
               return sb.rpc("aprovar_aluno", { p_aluno: id, p_plano: v.plano, p_turmas: v.turmas, p_dia_vencimento: parseInt(f.querySelector("#ap-dia").value, 10) || 10 })
-                .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Aprovado. Bem-vindo à família ZxT 🥊"); montarMenu(); rotear(); });
+                .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Aprovado. Bem-vindo à família ZxT 🥊"); syncAsaas(id, true); montarMenu(); rotear(); });
             }, "verde"]]);
           pickAp = PlanoPicker(fm.querySelector("#ap-picker"), { planos: planos, turmas: turmas, modalidades: dp.modalidades, permitirSemPlano: true,
             planoId: perfilAp.plano_escolhido_id, turmaIds: (perfilAp.turmas_escolhidas || []).filter(function (t) { return nomeTurma[t]; }) });
@@ -687,18 +698,21 @@
             (p.aulas_semana ? " · limite de " + p.aulas_semana + " aula(s) por semana" : "") + (ms.length ? " · só " + esc(ms.join(", ")) : "") + "</p></div>" +
             '<div class="acoes">' + tagStatus(p.ativo ? "ativo" : "inativo") + ' <button class="btn-mini claro" data-editar-plano="' + p.id + '">Editar</button></div></div>';
         }).join("") + "</div>" : '<div class="vazio-box">Nenhum plano. Cadastre com os valores da tabela vigente.</div>') +
-        '<div class="busca" style="margin-top:10px"><button class="btn-mini claro" id="novo-plano">Novo plano</button><button class="btn-mini claro" id="gerar">Gerar mensalidades do mês</button></div>' +
+        '<div class="busca" style="margin-top:10px"><button class="btn-mini claro" id="novo-plano">Novo plano</button><button class="btn-mini claro" id="gerar">Gerar mensalidades do mês</button><button class="btn-mini claro" id="sync-asaas">Sincronizar com Asaas</button></div>' +
+        '<p style="color:var(--cinza-2);font-size:13px;margin:8px 0 0">Quem está no Asaas recebe a mensalidade direto do Asaas, todo mês, e o status atualiza sozinho aqui. Gerar mensalidades vale só para quem ainda não está no Asaas.</p>' +
         "<h2>Cobranças</h2>" +
         '<div class="busca"><select id="cb-f">' + [["abertas", "Em aberto e atrasadas"], ["atrasado", "Só atrasadas"], ["pago", "Pagas"], ["todas", "Todas"]].map(function (o) {
           return '<option value="' + o[0] + '"' + (o[0] === filtro ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></div>" +
         (lista.length ? '<div class="lista">' + lista.map(function (c) {
           var nome = c.profiles ? c.profiles.nome : "";
           return '<div class="item' + (c.status === "atrasado" ? " destaque" : "") + '"><div><h3>' + esc(nome) + " · " + U.reais(c.valor_final_centavos) + "</h3><p>" + esc(c.descricao) + " · vence " + U.data(c.vencimento) +
-            (c.baixa_manual_por ? " · baixa manual (" + esc(c.forma_pagamento) + ")" : "") + "</p></div><div class=\"acoes\">" + tagStatus(c.status) +
+            (c.baixa_manual_por ? " · baixa manual (" + esc(c.forma_pagamento) + ")" : "") + (c.provider === "asaas" ? " · Asaas" + (c.status === "pago" && c.forma_pagamento ? " (" + esc(c.forma_pagamento) + ")" : "") : "") + "</p></div><div class=\"acoes\">" + tagStatus(c.status) +
+            (c.link_pagamento && (c.status === "em_aberto" || c.status === "atrasado") ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + esc(c.link_pagamento) + '">Fatura</a>' : "") +
             ((c.status === "em_aberto" || c.status === "atrasado") ? ' <button class="btn-mini verde" data-baixa="' + c.id + '">Dar baixa</button>' +
-              (c.profiles && c.profiles.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(c.profiles.whatsapp, "Oi, " + primeiroNome(nome) + "! Passando pra lembrar da mensalidade da ZXT de " + U.reais(c.valor_final_centavos) + " com vencimento em " + U.data(c.vencimento) + ". Qualquer dúvida, chama aqui 🥊") + '">Cobrar no WhatsApp</a>' : "") : "") + "</div></div>";
+              (c.profiles && c.profiles.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(c.profiles.whatsapp, "Oi, " + primeiroNome(nome) + "! Passando pra lembrar da mensalidade da ZXT de " + U.reais(c.valor_final_centavos) + " com vencimento em " + U.data(c.vencimento) + "." + (c.link_pagamento ? " Pra pagar por Pix ou cartão: " + c.link_pagamento : "") + " Qualquer dúvida, chama aqui 🥊") + '">Cobrar no WhatsApp</a>' : "") : "") + "</div></div>";
         }).join("") + "</div>" : '<div class="vazio-box">Nada nesse filtro.</div>');
       $("#cb-f").onchange = function () { location.hash = "#/cobrancas?st=" + this.value; };
+      $("#sync-asaas").onclick = function () { var bt = this; bt.disabled = true; syncAsaas(null, false).then(function () { bt.disabled = false; rotear(); }); };
       $("#gerar").onclick = function () {
         sb.rpc("gerar_mensalidades").then(function (x) { if (x.error) return U.erro(x.error); U.toast(x.data + " mensalidade(s) gerada(s)"); rotear(); });
       };
@@ -1231,7 +1245,7 @@
           var er = pick.erro(); if (er) { U.toast(er, "erro"); return false; }
           var v = pick.valor();
           return sb.rpc("trocar_plano", { p_aluno: alunoId, p_plano: v.plano, p_turmas: v.turmas, p_dia_vencimento: parseInt(g.querySelector("#pt-dia").value, 10) || 10 })
-            .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Plano e turmas atualizados"); });
+            .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Plano e turmas atualizados"); syncAsaas(alunoId, true); });
         }, "verde"]]);
       pick = PlanoPicker(f.querySelector("#pt-picker"), { planos: dp.planos, turmas: dp.turmas, modalidades: dp.modalidades, permitirSemPlano: true,
         planoId: ass ? ass.plano_id : null, turmaIds: mats.filter(function (t) { return dp.turmas.some(function (x) { return x.id === t && !x.coletiva; }); }) });

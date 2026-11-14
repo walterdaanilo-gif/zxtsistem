@@ -1,0 +1,5 @@
+project_id = "zxtsistem"
+
+# O Asaas não manda token do Supabase: a proteção é o header asaas-access-token.
+[functions.asaas-webhook]
+verify_jwt = false
