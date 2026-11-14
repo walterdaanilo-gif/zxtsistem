@@ -18,14 +18,15 @@
     funil: '<path d="M3 4h18l-7 8v7l-4 2v-9z"/>',
     comunidade: '<path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>',
     professor: '<circle cx="12" cy="7" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/><path d="M9 14l3 3 3-3"/>',
+    evento: '<path d="M4 7h16v13H4zM4 11h16M9 3v6M15 3v6"/><path d="M10 15.5l1.5 1.5 3-3"/>',
     config: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'
   };
   function ic(n) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + I[n] + "</svg>"; }
 
   var MENUS = {
     aluno: [["comunidade", "Comunidade", "comunidade"], ["inicio", "Início", "casa"], ["agenda", "Agenda", "agenda"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["graduacao", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
-    professor: [["chamada", "Chamada", "chamada"], ["aprovacoes", "Aprovações", "aprovar"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["cobrancas", "Financeiro", "dinheiro"], ["finturmas", "Minhas turmas", "grupo"], ["graduacoes", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
-    admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["professores", "Professores", "professor"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["config", "Configurações", "config"], ["perfil", "Meu perfil", "perfil"]]
+    professor: [["chamada", "Chamada", "chamada"], ["aprovacoes", "Aprovações", "aprovar"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["cobrancas", "Financeiro", "dinheiro"], ["finturmas", "Minhas turmas", "grupo"], ["eventos", "Eventos", "evento"], ["graduacoes", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
+    admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["professores", "Professores", "professor"], ["comunidade", "Comunidade", "comunidade"], ["eventos", "Eventos", "evento"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["config", "Configurações", "config"], ["perfil", "Meu perfil", "perfil"]]
   };
   var NOME_PAPEL = { aluno: "Aluno", professor: "Professor", admin: "Administração" };
 
@@ -58,6 +59,8 @@
     var nomes = { em_aberto: "Em aberto", nao_compareceu: "Não veio", espera: "Lista de espera", sem: "Sem cobrança" };
     return '<span class="tag ' + (m[s] || "neutro") + '">' + esc(nomes[s] || (s.charAt(0).toUpperCase() + s.slice(1))) + "</span>";
   }
+  // links https viram clicáveis (o texto já vem escapado)
+  function linkar(t) { return t.replace(/https:\/\/[^\s<]+[^\s<.,;:!?)]/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">' + u + "</a>"; }); }
   function primeiroNome(n) { return (n || "Guerreiro").split(" ")[0]; }
   function inicioMes() { var h = U.hojeISO(); return h.slice(0, 8) + "01"; }
   function chk(r) { if (r.error) throw r.error; return r.data; }
@@ -1058,12 +1061,12 @@
           var coms = (p.comentarios || []).sort(function (x, y) { return x.created_at < y.created_at ? -1 : 1; });
           var meu = p.autor_id === S.user.id;
           return '<article class="post' + (p.fixado ? " fixado" : "") + (p.oculto ? " oculto" : "") + '" data-post="' + p.id + '">' +
-            '<header class="post-topo">' + avatar(a) + '<div><b>' + esc(a.nome || "Membro ZXT") + "</b><span>" + tempoAtras(p.created_at) +
+            '<header class="post-topo">' + avatar(a) + '<div><b>' + esc(a.nome || (p.fixado ? "Equipe ZXT" : "Membro ZXT")) + "</b><span>" + tempoAtras(p.created_at) +
             "</span></div>" +
             (p.fixado ? '<span class="tag info">Fixado</span>' : "") + (p.oculto ? '<span class="tag neutro">Oculto</span>' : "") +
             (denPorPost[p.id] ? '<span class="tag atencao">' + denPorPost[p.id] + " denúncia(s)</span>" : "") +
             '<button class="post-menu" data-menu="' + p.id + '" aria-label="Opções">⋯</button></header>' +
-            (p.texto ? '<p class="post-texto">' + esc(p.texto) + "</p>" : "") +
+            (p.texto ? '<p class="post-texto">' + linkar(esc(p.texto)) + "</p>" : "") +
             (midias.length ? '<div class="post-midias n' + Math.min(midias.length, 4) + '">' + midias.map(function (m) {
               var u = urls[m.url]; if (!u) return "";
               return m.tipo === "video" ? '<video src="' + esc(u) + '" controls playsinline preload="metadata"></video>' : '<img src="' + esc(u) + '" alt="Foto da postagem" loading="lazy">';
@@ -1718,6 +1721,354 @@
       };
     });
   };
+
+  // =================================================================== EVENTOS (equipe)
+  var TIPOS_EV = [["aulao", "Aulão"], ["aulao_pre_graduacao", "Aulão pré-graduação"], ["exame_graduacao", "Exame de graduação"], ["seminario", "Seminário"], ["competicao", "Competição"], ["outro", "Outro"]];
+  var ORIGEM_EV = { google_forms: "Google Forms", formulario: "Formulário", manual: "Manual" };
+  function linkEvento(ev) { return location.origin + "/evento/" + ev.slug; }
+  function slugify(t) {
+    return String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "evento";
+  }
+  function resumoInscricoes(ins) {
+    var r = { total: 0, pagos: 0, pendentes: 0, recebido: 0, previsto: 0, aReceber: 0, aConfirmar: 0, cancelados: 0 };
+    ins.forEach(function (i) {
+      if (i.status === "cancelado") { r.cancelados++; return; }
+      r.total++;
+      if (i.status === "pago" || i.status === "isento") r.pagos++;
+      if (i.status === "pago") r.recebido += i.valor_centavos || 0;
+      if (i.valor_centavos == null) r.aConfirmar++;
+      else r.previsto += i.valor_centavos;
+      if (i.status === "pendente") { r.pendentes++; r.aReceber += i.valor_centavos || 0; }
+    });
+    return r;
+  }
+  function tagInscricao(s) {
+    return { pago: '<span class="tag ok">✅ Pago</span>', isento: '<span class="tag ok">✅ Isento</span>', pendente: '<span class="tag atencao">⏳ Pendente</span>', cancelado: '<span class="tag neutro">Cancelado</span>' }[s] || "";
+  }
+  function copiar(txt) { navigator.clipboard.writeText(txt).then(function () { U.toast("Link copiado"); }, function () { U.toast(txt); }); }
+
+  VIEWS.eventos = function () {
+    var evId = (location.hash.match(/[?&]e=([0-9a-f-]+)/) || [])[1];
+    return evId ? eventoDetalhe(evId) : eventosLista();
+  };
+
+  function eventosLista() {
+    var admin = S.modo === "admin";
+    return Promise.all([
+      sb.from("eventos").select("*").order("inicio", { ascending: false }).then(chk),
+      sb.from("evento_inscricoes").select("evento_id,status,valor_centavos").then(chk)
+    ]).then(function (r) {
+      var evs = r[0], ins = r[1], hoje = new Date();
+      function card(ev) {
+        var rs = resumoInscricoes(ins.filter(function (i) { return i.evento_id === ev.id; }));
+        var passou = new Date(ev.inicio) < hoje;
+        return '<div class="item' + (passou ? " inativa" : " destaque") + '"><div><h3>' + esc(ev.titulo) + "</h3><p>" + esc(U.dataHora(ev.inicio)) + " · " +
+          esc((TIPOS_EV.filter(function (t) { return t[0] === ev.tipo; })[0] || ["", ev.tipo])[1]) + "</p>" +
+          "<p><b style=\"color:#fff\">" + rs.total + " inscrito(s)</b> · " + rs.pagos + " confirmado(s) · recebido " + U.reais(rs.recebido) + " de " + U.reais(rs.previsto) + " previstos" +
+          (rs.aConfirmar ? " · " + rs.aConfirmar + " com valor a confirmar" : "") + "</p></div>" +
+          '<div class="acoes">' + (ev.inscricoes_abertas && !passou ? '<span class="tag ok">Inscrições abertas</span>' : '<span class="tag neutro">Encerrado</span>') +
+          (ev.slug ? ' <button class="btn-mini claro" data-copiar="' + esc(linkEvento(ev)) + '">Copiar link</button>' : "") +
+          ' <a class="btn-mini" href="#/eventos?e=' + ev.id + '">Abrir</a></div></div>';
+      }
+      tela.innerHTML = "<h1><em>Eventos</em></h1><p class=\"sub\">Aulões, exames e eventos da academia. Cada evento tem um link de inscrição com pagamento no próprio formulário.</p>" +
+        (admin ? '<div class="busca"><button class="btn-mini" id="novo-ev">Criar evento</button></div>' : "") +
+        (evs.length ? '<div class="lista">' + evs.map(card).join("") + "</div>" : '<div class="vazio-box">Nenhum evento ainda.</div>');
+      tela.onclick = function (e) {
+        var b = e.target.closest("[data-copiar]"); if (b) return copiar(b.getAttribute("data-copiar"));
+        if (e.target.id === "novo-ev") editorEvento(null, []);
+      };
+    });
+  }
+
+  function eventoDetalhe(evId) {
+    var admin = S.modo === "admin";
+    var q = new URLSearchParams((location.hash.split("?")[1] || ""));
+    var f = { busca: q.get("q") || "", st: q.get("st") || "", op: q.get("op") || "", x: q.get("x") || "" };
+    return Promise.all([
+      sb.from("eventos").select("*").eq("id", evId).single().then(chk),
+      sb.from("evento_opcoes").select("*").eq("evento_id", evId).order("ordem").then(chk),
+      sb.from("evento_inscricoes").select("*").eq("evento_id", evId).order("created_at", { ascending: true }).then(chk)
+    ]).then(function (r) {
+      var ev = r[0], ops = r[1], ins = r[2];
+      var extras = ((ev.campos || {}).extras || []);
+      var exSel = extras.filter(function (x) { return x.tipo === "opcoes"; })[0];
+      var opNome = {}; ops.forEach(function (o) { opNome[o.id] = o.nome; });
+      var rs = resumoInscricoes(ins);
+      var exame = ev.tipo === "exame_graduacao";
+      var link = ev.slug ? linkEvento(ev) : "";
+
+      function quebra(titulo, chaveDe, nomes) {
+        var g = {};
+        ins.forEach(function (i) {
+          if (i.status === "cancelado") return;
+          var k = chaveDe(i) || "Não informado";
+          g[k] = g[k] || { n: 0, pagos: 0, previsto: 0, recebido: 0, conf: 0 };
+          g[k].n++; if (i.status === "pago" || i.status === "isento") g[k].pagos++;
+          if (i.valor_centavos == null) g[k].conf++; else g[k].previsto += i.valor_centavos;
+          if (i.status === "pago") g[k].recebido += i.valor_centavos || 0;
+        });
+        var ordem = (nomes || []).filter(function (k) { return g[k]; }).concat(Object.keys(g).filter(function (k) { return (nomes || []).indexOf(k) < 0; }));
+        if (!ordem.length) return "";
+        return "<h2>" + titulo + '</h2><div class="ev-quebra">' + ordem.map(function (k) {
+          var x = g[k];
+          return '<div class="linha"><b>' + esc(k) + "</b><span>" + x.n + " inscr. · " + x.pagos + " pago(s)</span><span>" + U.reais(x.recebido) + " / " + U.reais(x.previsto) +
+            (x.conf ? " + " + x.conf + " a confirmar" : "") + "</span></div>";
+        }).join("") + "</div>";
+      }
+
+      var lista = ins.filter(function (i) {
+        if (f.st ? i.status !== f.st : i.status === "cancelado") return false;
+        if (f.op && i.opcao_id !== f.op) return false;
+        if (f.x && exSel && (i.respostas || {})[exSel.id] !== f.x) return false;
+        if (f.busca && U.soDigitos(f.busca).length < 3 && (i.nome || "").toLowerCase().indexOf(f.busca.toLowerCase()) < 0) return false;
+        if (f.busca && U.soDigitos(f.busca).length >= 3 && (i.cpf || "").indexOf(U.soDigitos(f.busca)) < 0 && (i.nome || "").toLowerCase().indexOf(f.busca.toLowerCase()) < 0) return false;
+        return true;
+      }).sort(function (a, b) { return (a.nome || "").localeCompare(b.nome || "", "pt-BR"); });
+
+      tela.innerHTML = '<p style="margin:0 0 6px"><a href="#/eventos" style="color:var(--cinza)">← Eventos</a></p>' +
+        "<h1>" + esc(ev.titulo) + "</h1><p class=\"sub\">" + esc(U.dataHora(ev.inicio)) + (ev.endereco ? " · " + esc(ev.endereco) : "") + " · pagamento " + (ev.pagamento === "online" ? "online (Pix, cartão e boleto)" : "na academia") + "</p>" +
+        (link ? '<div class="cartao"><p class="olho" style="margin:0 0 8px">Link de inscrição</p><div class="ev-link"><input readonly value="' + esc(link) + '">' +
+          '<button class="btn-mini" data-copiar="' + esc(link) + '">Copiar</button>' +
+          '<a class="btn-mini claro" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent("Inscrições abertas: " + ev.titulo + " (" + U.dataHora(ev.inicio) + "). Faça a sua e pague por Pix, cartão ou boleto: " + link) + '">Enviar no WhatsApp</a>' +
+          '<a class="btn-mini claro" target="_blank" rel="noopener" href="' + esc(link) + '">Abrir</a></div>' +
+          (!ev.inscricoes_abertas ? '<p style="margin:8px 0 0;color:#f2a20c;font-size:14px">⚠️ Inscrições fechadas: o link mostra "encerradas".</p>' : "") + "</div>" : "") +
+        '<div class="kpis k6" style="margin-top:12px">' +
+          '<div class="kpi"><b>' + rs.total + "</b><span>Inscritos</span></div>" +
+          '<div class="kpi"><b>' + rs.pagos + "</b><span>Pagos ou isentos</span></div>" +
+          '<div class="kpi alerta"><b>' + rs.pendentes + "</b><span>Pendentes</span></div>" +
+          '<div class="kpi"><b>' + U.reais(rs.recebido) + "</b><span>Recebido</span></div>" +
+          '<div class="kpi alerta"><b>' + U.reais(rs.aReceber) + "</b><span>A receber</span></div>" +
+          '<div class="kpi"><b>' + U.reais(rs.previsto) + "</b><span>Previsto total</span></div></div>" +
+        '<p style="color:var(--cinza-2);font-size:13px;margin:8px 0 0">Previsto = soma dos valores das inscrições não canceladas. A receber = previsto das pendentes.' +
+          (rs.aConfirmar ? ' <b style="color:#f2a20c">⚠️ ' + rs.aConfirmar + " inscrição(ões) em opção sem valor definido: não entram no previsto.</b>" : "") + "</p>" +
+        (admin ? '<div class="busca" style="margin-top:12px"><button class="btn-mini claro" id="ev-editar">Editar evento e valores</button><button class="btn-mini claro" id="ev-add">Adicionar inscrição</button><button class="btn-mini claro" id="ev-csv">Baixar planilha</button></div>'
+               : '<div class="busca" style="margin-top:12px"><button class="btn-mini claro" id="ev-csv">Baixar planilha</button></div>') +
+        quebra(exame ? "Por prajied" : "Por opção", function (i) { return opNome[i.opcao_id]; }, ops.map(function (o) { return o.nome; })) +
+        (exSel ? quebra("Por " + exSel.rotulo.toLowerCase(), function (i) { return (i.respostas || {})[exSel.id]; }, exSel.opcoes) : "") +
+        "<h2>Inscritos</h2>" +
+        '<div class="ev-filtros"><input id="evf-q" placeholder="Buscar nome ou CPF" value="' + esc(f.busca) + '">' +
+          '<select class="sel" id="evf-st"><option value="">Todos (sem cancelados)</option>' + [["pendente", "Pendentes"], ["pago", "Pagos"], ["isento", "Isentos"], ["cancelado", "Cancelados"]].map(function (o) {
+            return '<option value="' + o[0] + '"' + (o[0] === f.st ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
+          (ops.length ? '<select class="sel" id="evf-op"><option value="">Todas as opções</option>' + ops.map(function (o) { return '<option value="' + o.id + '"' + (o.id === f.op ? " selected" : "") + ">" + esc(o.nome) + "</option>"; }).join("") + "</select>" : "") +
+          (exSel ? '<select class="sel" id="evf-x"><option value="">' + esc(exSel.rotulo) + ": todos</option>" + exSel.opcoes.map(function (o) { return "<option" + (o === f.x ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select>" : "") +
+        "</div><p style=\"color:var(--cinza);font-size:14px;margin:0 0 8px\">" + lista.length + " na lista</p>" +
+        (lista.length ? '<div class="lista">' + lista.map(function (i) {
+          var resp = i.respostas || {};
+          var ex = extras.map(function (x) { return resp[x.id] ? esc(x.rotulo) + ": " + esc(resp[x.id]) : ""; }).filter(Boolean).join(" · ");
+          return '<div class="item' + (i.status === "pendente" ? " destaque" : "") + '"><div><h3>' + esc(i.nome || "Sem nome") + "</h3><p>" +
+            [opNome[i.opcao_id] ? esc(opNome[i.opcao_id]) : "", ex, i.valor_centavos == null ? '<span style="color:#f2a20c">valor a confirmar</span>' : U.reais(i.valor_centavos),
+             ORIGEM_EV[i.origem] || esc(i.origem)].filter(Boolean).join(" · ") + "</p>" +
+            (i.obs ? '<p style="color:#f2a20c">📝 ' + esc(i.obs) + "</p>" : "") +
+            (i.status === "pago" && i.forma_pagamento ? "<p>Pago via " + esc(i.forma_pagamento) + (i.pago_em ? " em " + U.data(i.pago_em) : "") + (i.baixa_por ? " (baixa manual)" : "") + "</p>" : "") + "</div>" +
+            '<div class="acoes">' + tagInscricao(i.status) +
+            (exame && i.presente ? ' <span class="tag info">Presente</span>' : "") + (exame && i.aprovado === true ? ' <span class="tag ok">Aprovado</span>' : exame && i.aprovado === false ? ' <span class="tag risco">Não aprovado</span>' : "") +
+            (i.status === "pendente" && i.valor_centavos ? ' <button class="btn-mini verde" data-baixa-ev="' + i.id + '">Dar baixa</button>' : "") +
+            (i.status === "pendente" && i.whatsapp && i.valor_centavos ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(i.whatsapp, "Oi, " + primeiroNome(i.nome) + "! Sua inscrição no " + ev.titulo + " está com o pagamento pendente (" + U.reais(i.valor_centavos) + "). Pague por Pix, cartão ou boleto neste link: " + link + "?i=" + i.codigo) + '">Cobrar</a>' : "") +
+            ' <button class="btn-mini claro" data-ins="' + i.id + '">Detalhes</button></div></div>';
+        }).join("") + "</div>" : '<div class="vazio-box">Ninguém nesse filtro.</div>');
+
+      function filtrar() {
+        var p = new URLSearchParams(); p.set("e", evId);
+        var v = { q: $("#evf-q").value.trim(), st: $("#evf-st").value, op: $("#evf-op") ? $("#evf-op").value : "", x: $("#evf-x") ? $("#evf-x").value : "" };
+        Object.keys(v).forEach(function (k) { if (v[k]) p.set(k, v[k]); });
+        history.replaceState(null, "", "#/eventos?" + p.toString());
+        eventoDetalhe(evId).then(function () { var b = $("#evf-q"); if (b && v.q) { b.focus(); b.setSelectionRange(b.value.length, b.value.length); } });
+      }
+      var tq; $("#evf-q").oninput = function () { clearTimeout(tq); tq = setTimeout(filtrar, 350); };
+      ["#evf-st", "#evf-op", "#evf-x"].forEach(function (s) { if ($(s)) $(s).onchange = filtrar; });
+      $("#ev-csv").onclick = function () { baixarCsv(ev, ops, ins, extras); };
+      if (admin) {
+        $("#ev-editar").onclick = function () { editorEvento(ev, ops); };
+        $("#ev-add").onclick = function () { inscricaoManual(ev, ops, extras); };
+      }
+      tela.onclick = function (e) {
+        var b;
+        if ((b = e.target.closest("[data-copiar]"))) return copiar(b.getAttribute("data-copiar"));
+        if ((b = e.target.closest("[data-baixa-ev]"))) {
+          var alvo = ins.filter(function (x) { return x.id === b.getAttribute("data-baixa-ev"); })[0];
+          return modal("Dar baixa: " + alvo.nome, "<p>" + U.reais(alvo.valor_centavos) + (opNome[alvo.opcao_id] ? " · " + esc(opNome[alvo.opcao_id]) : "") + "</p>" +
+            '<div class="campo"><label for="bxe-f">Forma de pagamento</label><select class="sel" id="bxe-f"><option value="dinheiro">Dinheiro</option><option value="pix_direto">Pix direto (conta da academia)</option><option value="cartao">Cartão na maquininha</option><option value="outro">Outro</option></select></div>' +
+            '<div class="campo" style="margin-top:12px"><label for="bxe-o">Observação</label><input id="bxe-o" placeholder="Ex.: comprovante enviado ao professor"></div><p style="color:var(--cinza);font-size:13px">Fica registrado quem deu a baixa e quando. Confira o comprovante antes.</p>',
+            [["Cancelar", null, "claro"], ["Confirmar baixa", function (m) {
+              return sb.rpc("baixa_inscricao", { p_inscricao: alvo.id, p_forma: m.querySelector("#bxe-f").value, p_obs: m.querySelector("#bxe-o").value || null })
+                .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Baixa registrada"); eventoDetalhe(evId); });
+            }, "verde"]]);
+        }
+        if ((b = e.target.closest("[data-ins]"))) detalheInscricao(ev, ops, extras, ins.filter(function (x) { return x.id === b.getAttribute("data-ins"); })[0], admin);
+      };
+    });
+  }
+
+  function detalheInscricao(ev, ops, extras, i, admin) {
+    var exame = ev.tipo === "exame_graduacao", resp = i.respostas || {};
+    var cpf = i.cpf ? i.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : "não informado";
+    var corpo = '<div class="ev-info">' +
+      "<p>CPF: <b>" + esc(cpf) + "</b></p><p>Nascimento: <b>" + (i.nascimento ? U.data(i.nascimento) + " (" + U.idade(i.nascimento) + " anos)" : "não informado") + "</b></p>" +
+      (i.email ? "<p>E-mail: <b>" + esc(i.email) + "</b></p>" : "") +
+      extras.map(function (x) { return resp[x.id] ? "<p>" + esc(x.rotulo) + ": <b>" + esc(resp[x.id]) + "</b></p>" : ""; }).join("") +
+      "<p>Inscrito em " + esc(U.dataHora(i.created_at)) + " · " + esc(ORIGEM_EV[i.origem] || i.origem) + "</p>" +
+      (i.link_pagamento ? '<p><a target="_blank" rel="noopener" href="' + esc(i.link_pagamento) + '">Fatura no Asaas</a></p>' : "") +
+      (i.recibo_url ? '<p><a target="_blank" rel="noopener" href="' + esc(i.recibo_url) + '">Comprovante</a></p>' : "") + "</div>" +
+      '<div class="campo" style="margin-top:12px"><label for="di-w">WhatsApp</label><input id="di-w" inputmode="tel" value="' + esc(i.whatsapp || "") + '"></div>' +
+      (exame ? '<div class="linha2" style="margin-top:12px"><label class="check"><input type="checkbox" id="di-p"' + (i.presente ? " checked" : "") + "> Presente no exame</label>" +
+        '<div class="campo"><label for="di-a">Resultado</label><select class="sel" id="di-a"><option value="">Ainda sem resultado</option><option value="true"' + (i.aprovado === true ? " selected" : "") + '>Aprovado</option><option value="false"' + (i.aprovado === false ? " selected" : "") + ">Não aprovado</option></select></div></div>"
+        : '<label class="check" style="margin-top:12px"><input type="checkbox" id="di-p"' + (i.presente ? " checked" : "") + "> Presente</label>") +
+      '<div class="campo" style="margin-top:12px"><label for="di-o">Observação</label><input id="di-o" value="' + esc(i.obs || "") + '"></div>' +
+      (admin ? '<p class="pp-titulo">Administração</p>' +
+        '<div class="campo"><label for="di-n">Nome</label><input id="di-n" value="' + esc(i.nome || "") + '"></div>' +
+        '<div class="linha2" style="margin-top:10px"><div class="campo"><label for="di-c">CPF</label><input id="di-c" inputmode="numeric" value="' + esc(i.cpf || "") + '"></div>' +
+        (ops.length ? '<div class="campo"><label for="di-op">Opção</label><select class="sel" id="di-op">' + ops.map(function (o) { return '<option value="' + o.id + '"' + (o.id === i.opcao_id ? " selected" : "") + ">" + esc(o.nome) + "</option>"; }).join("") + "</select></div>" : "") + "</div>" +
+        '<div class="linha2" style="margin-top:10px"><div class="campo"><label for="di-v">Valor (R$, vazio = a confirmar)</label><input id="di-v" inputmode="decimal" value="' + (i.valor_centavos != null ? (i.valor_centavos / 100).toFixed(2).replace(".", ",") : "") + '"></div>' +
+        '<div class="campo"><label for="di-s">Situação</label><select class="sel" id="di-s">' + [["pendente", "Pendente"], ["pago", "Pago"], ["isento", "Isento"], ["cancelado", "Cancelado"]].map(function (o) {
+          return '<option value="' + o[0] + '"' + (o[0] === i.status ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></div></div>" +
+        '<p style="color:var(--cinza);font-size:13px;margin:8px 0 0">Para registrar pagamento feito na academia use "Dar baixa": fica o registro de quem recebeu.</p>' : "");
+    modal(i.nome || "Inscrição", corpo, [["Fechar", null, "claro"], ["Salvar", function (m) {
+      var d = { whatsapp: m.querySelector("#di-w").value, presente: m.querySelector("#di-p").checked, obs: m.querySelector("#di-o").value.trim() };
+      if (exame) d.aprovado = m.querySelector("#di-a").value === "" ? null : m.querySelector("#di-a").value === "true";
+      if (admin) {
+        var nv = m.querySelector("#di-v").value.trim(), vc = nv === "" ? null : Math.round(parseFloat(nv.replace(/\./g, "").replace(",", ".")) * 100);
+        if (nv !== "" && !(vc >= 0)) { U.toast("Valor inválido.", "erro"); return false; }
+        var c = U.soDigitos(m.querySelector("#di-c").value);
+        if (c && !U.cpfValido(c)) { U.toast("CPF inválido.", "erro"); return false; }
+        var opSel = m.querySelector("#di-op") ? m.querySelector("#di-op").value : i.opcao_id;
+        if (opSel !== i.opcao_id) d.opcao_id = opSel;
+        else if (vc !== i.valor_centavos) d.valor_centavos = vc;
+        if (m.querySelector("#di-s").value !== i.status) d.status = m.querySelector("#di-s").value;
+        if (m.querySelector("#di-n").value.trim() !== i.nome) d.nome = m.querySelector("#di-n").value.trim();
+        if (c !== (i.cpf || "")) d.cpf = c;
+      }
+      return sb.rpc("atualizar_inscricao", { p_inscricao: i.id, p: d }).then(function (x) {
+        if (x.error) { U.erro(/evento_inscricoes_cpf/.test(x.error.message) ? { message: "Já existe inscrição com esse CPF neste evento." } : x.error); return false; }
+        U.toast("Inscrição atualizada"); eventoDetalhe(ev.id);
+      });
+    }]]);
+  }
+
+  function inscricaoManual(ev, ops, extras) {
+    modal("Adicionar inscrição", '<div class="campo"><label for="im-n">Nome completo</label><input id="im-n"></div>' +
+      '<div class="linha2" style="margin-top:10px"><div class="campo"><label for="im-c">CPF</label><input id="im-c" inputmode="numeric"></div><div class="campo"><label for="im-w">WhatsApp</label><input id="im-w" inputmode="tel"></div></div>' +
+      (ops.length ? '<div class="campo" style="margin-top:10px"><label for="im-op">Opção</label><select class="sel" id="im-op">' + ops.filter(function (o) { return o.ativa; }).map(function (o) {
+        return '<option value="' + o.id + '">' + esc(o.nome) + " · " + (o.valor_centavos == null ? "a confirmar" : U.reais(o.valor_centavos)) + "</option>"; }).join("") + "</select></div>" : "") +
+      extras.map(function (x) {
+        return '<div class="campo" style="margin-top:10px"><label>' + esc(x.rotulo) + "</label>" + (x.tipo === "opcoes" ? '<select class="sel" data-im="' + esc(x.id) + '"><option value=""></option>' +
+          (x.opcoes || []).map(function (o) { return "<option>" + esc(o) + "</option>"; }).join("") + "</select>" : '<input data-im="' + esc(x.id) + '">') + "</div>";
+      }).join("") +
+      '<p style="color:var(--cinza);font-size:13px;margin:10px 0 0">A pessoa entra como pendente. Se pagou na hora, use "Dar baixa" depois. Ela também pode pagar pelo link do evento usando o mesmo CPF.</p>',
+      [["Cancelar", null, "claro"], ["Adicionar", function (m) {
+        var d = { evento_id: ev.id, nome: m.querySelector("#im-n").value.trim(), cpf: U.soDigitos(m.querySelector("#im-c").value), whatsapp: m.querySelector("#im-w").value,
+          opcao_id: m.querySelector("#im-op") ? m.querySelector("#im-op").value : null, respostas: {}, origem: "manual" };
+        U.$$("[data-im]", m).forEach(function (el) { d.respostas[el.getAttribute("data-im")] = el.value.trim(); });
+        if (d.nome.length < 3) { U.toast("Informe o nome.", "erro"); return false; }
+        if (d.cpf && !U.cpfValido(d.cpf)) { U.toast("CPF inválido.", "erro"); return false; }
+        return sb.rpc("inscrever_evento", { p: d }).then(function (x) {
+          if (x.error) { U.erro(x.error); return false; }
+          U.toast(x.data.ja_inscrito ? "Essa pessoa já estava inscrita" : "Inscrição adicionada"); eventoDetalhe(ev.id);
+        });
+      }]]);
+  }
+
+  function baixarCsv(ev, ops, ins, extras) {
+    var opNome = {}; ops.forEach(function (o) { opNome[o.id] = o.nome; });
+    var cab = ["Nome", "CPF", "Nascimento", "WhatsApp", "E-mail", "Opção"].concat(extras.map(function (x) { return x.rotulo; }))
+      .concat(["Valor", "Situação", "Forma", "Pago em", "Presente", "Aprovado", "Origem", "Observação", "Inscrito em"]);
+    var linhas = ins.slice().sort(function (a, b) { return (a.nome || "").localeCompare(b.nome || "", "pt-BR"); }).map(function (i) {
+      return [i.nome, i.cpf, i.nascimento ? U.data(i.nascimento) : "", i.whatsapp, i.email, opNome[i.opcao_id] || ""]
+        .concat(extras.map(function (x) { return (i.respostas || {})[x.id] || ""; }))
+        .concat([i.valor_centavos == null ? "a confirmar" : (i.valor_centavos / 100).toFixed(2).replace(".", ","), i.status, i.forma_pagamento || "", i.pago_em ? U.data(i.pago_em) : "",
+          i.presente ? "sim" : "", i.aprovado === true ? "sim" : i.aprovado === false ? "não" : "", ORIGEM_EV[i.origem] || i.origem, i.obs || "", U.data(i.created_at)]);
+    });
+    var csv = [cab].concat(linhas).map(function (l) { return l.map(function (c) { return '"' + String(c == null ? "" : c).replace(/"/g, '""') + '"'; }).join(";"); }).join("\r\n");
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+    a.download = slugify(ev.titulo) + "-inscritos.csv"; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  function editorEvento(ev, ops) {
+    var novo = !ev;
+    ev = ev || { titulo: "", tipo: "aulao", descricao: "", inicio: null, local_nome: "", endereco: "Rua São Nicolau, 309, Felipe Camarão, Natal/RN", vagas: null, inscricoes_abertas: true,
+      publico: true, pagamento: "online", campos: { cpf: true, nascimento: true, whatsapp: true, email: false, extras: [] }, mensagem_confirmacao: "", slug: "" };
+    var c = ev.campos || {};
+    var dt = ev.inicio ? new Date(ev.inicio) : null;
+    var dia = dt ? dt.toLocaleDateString("sv-SE", { timeZone: "America/Fortaleza" }) : "", hora = dt ? dt.toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" }) : "";
+    var ate = ev.inscricoes_ate ? new Date(ev.inscricoes_ate).toLocaleDateString("sv-SE", { timeZone: "America/Fortaleza" }) : "";
+    var extrasTxt = (c.extras || []).map(function (x) { return x.rotulo + (x.tipo === "opcoes" ? ": " + (x.opcoes || []).join(", ") : "") + (x.obrigatorio ? "" : " (opcional)"); }).join("\n");
+    function linhaOp(o) {
+      o = o || {};
+      return '<div class="ev-opc-ed" data-op="' + (o.id || "") + '" data-nivel="' + (o.nivel_id || "") + '"><input data-on placeholder="Ex.: Inscrição aluno" value="' + esc(o.nome || "") + '">' +
+        '<input data-ov inputmode="decimal" placeholder="a confirmar" value="' + (o.valor_centavos != null ? (o.valor_centavos / 100).toFixed(2).replace(".", ",") : "") + '">' +
+        '<button type="button" class="btn-mini claro" data-rm-op>' + (o.ativa === false ? "Reativar" : "Remover") + "</button></div>";
+    }
+    var corpo = '<div class="campo"><label for="ee-t">Nome do evento</label><input id="ee-t" value="' + esc(ev.titulo) + '"></div>' +
+      '<div class="linha2" style="margin-top:10px"><div class="campo"><label for="ee-tp">Tipo</label><select class="sel" id="ee-tp">' + TIPOS_EV.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === ev.tipo ? " selected" : "") + ">" + t[1] + "</option>"; }).join("") + "</select></div>" +
+      '<div class="campo"><label for="ee-sl">Link: /evento/…</label><input id="ee-sl" value="' + esc(ev.slug || "") + '" placeholder="gerado pelo nome"></div></div>' +
+      '<div class="linha2" style="margin-top:10px"><div class="campo"><label for="ee-d">Data</label><input id="ee-d" type="date" value="' + dia + '"></div><div class="campo"><label for="ee-h">Horário</label><input id="ee-h" type="time" value="' + hora + '"></div></div>' +
+      '<div class="campo" style="margin-top:10px"><label for="ee-e">Endereço</label><input id="ee-e" value="' + esc(ev.endereco || "") + '"></div>' +
+      '<div class="campo" style="margin-top:10px"><label for="ee-ds">Descrição (aparece no formulário)</label><textarea id="ee-ds" rows="3">' + esc(ev.descricao || "") + "</textarea></div>" +
+      '<p class="pp-titulo">Opções de inscrição e valores</p><p style="color:var(--cinza);font-size:13px;margin:0 0 8px">Valor em branco = a confirmar (a pessoa se inscreve, mas só paga quando você definir). R$ 0 = gratuito. Use só valores aprovados.</p>' +
+      '<div id="ee-ops">' + (ops.length ? ops.map(linhaOp).join("") : linhaOp({ nome: "Inscrição" })) + '</div><button type="button" class="btn-mini claro" id="ee-addop">+ Opção</button>' +
+      '<p class="pp-titulo">Pagamento e inscrições</p>' +
+      '<div class="linha2"><div class="campo"><label for="ee-pg">Pagamento</label><select class="sel" id="ee-pg"><option value="online"' + (ev.pagamento === "online" ? " selected" : "") + '>No formulário (Pix, cartão, boleto)</option><option value="local"' + (ev.pagamento === "local" ? " selected" : "") + ">Na academia (baixa manual)</option></select></div>" +
+      '<div class="campo"><label for="ee-v">Vagas (vazio = sem limite)</label><input id="ee-v" type="number" min="1" value="' + (ev.vagas || "") + '"></div></div>' +
+      '<div class="linha2" style="margin-top:10px"><div class="campo"><label for="ee-at">Inscrições até (opcional)</label><input id="ee-at" type="date" value="' + ate + '"></div>' +
+      '<div class="campo"><label class="check" style="margin-top:28px"><input type="checkbox" id="ee-ab"' + (ev.inscricoes_abertas ? " checked" : "") + "> Inscrições abertas</label></div></div>" +
+      '<p class="pp-titulo">O que o formulário pede</p><div class="linha2">' +
+      [["cpf", "CPF"], ["nascimento", "Nascimento"], ["whatsapp", "WhatsApp"], ["email", "E-mail"]].map(function (k) {
+        return '<label class="check"><input type="checkbox" data-campo="' + k[0] + '"' + (c[k[0]] ? " checked" : "") + "> " + k[1] + "</label>"; }).join("") + "</div>" +
+      '<div class="campo" style="margin-top:10px"><label for="ee-x">Perguntas extras (uma por linha)</label><textarea id="ee-x" rows="3" placeholder="Professor: Thiago, Zulu, Ricardo&#10;Tamanho da camisa: P, M, G (opcional)&#10;Alguma lesão? (opcional)">' + esc(extrasTxt) + "</textarea>" +
+      "<small>Com dois pontos vira lista de escolha. Termine com (opcional) se não for obrigatória. CPF é exigido para pagar online.</small></div>" +
+      '<div class="campo" style="margin-top:10px"><label for="ee-m">Mensagem depois de confirmar (opcional)</label><input id="ee-m" value="' + esc(ev.mensagem_confirmacao || "") + '"></div>';
+    var m = modal(novo ? "Criar evento" : "Editar evento", corpo, [["Cancelar", null, "claro"], ["Salvar evento", function (mm) { return salvar(mm); }]]);
+    m.querySelector(".modal").classList.add("largo");
+    m.querySelector("#ee-addop").onclick = function () { m.querySelector("#ee-ops").insertAdjacentHTML("beforeend", linhaOp()); };
+    m.querySelector("#ee-ops").onclick = function (e) {
+      var b = e.target.closest("[data-rm-op]"); if (!b) return;
+      var l = b.closest("[data-op]");
+      if (!l.getAttribute("data-op")) return l.remove();
+      var off = l.getAttribute("data-off") !== "1";
+      l.setAttribute("data-off", off ? "1" : "0"); l.style.opacity = off ? ".45" : "1"; b.textContent = off ? "Reativar" : "Remover";
+    };
+    U.$$("[data-op]", m).forEach(function (l, k) { var o = ops[k]; if (o && o.ativa === false) { l.setAttribute("data-off", "1"); l.style.opacity = ".45"; } });
+
+    function salvar(mm) {
+      var t = mm.querySelector("#ee-t").value.trim(), d = mm.querySelector("#ee-d").value, h = mm.querySelector("#ee-h").value || "00:00";
+      if (t.length < 3 || !d) { U.toast("Preencha nome e data.", "erro"); return false; }
+      var extras = mm.querySelector("#ee-x").value.split("\n").map(function (l) { return l.trim(); }).filter(Boolean).map(function (l, k) {
+        var opc = /\(opcional\)\s*$/i.test(l); l = l.replace(/\(opcional\)\s*$/i, "").trim();
+        var p = l.split(":"), rot = p[0].trim(), lista = p.length > 1 ? p.slice(1).join(":").split(",").map(function (s) { return s.trim(); }).filter(Boolean) : [];
+        var antigo = ((c.extras || []).filter(function (x) { return x.rotulo === rot; })[0] || {}).id;
+        return { id: antigo || slugify(rot).replace(/-/g, "_") || "p" + k, rotulo: rot, tipo: lista.length ? "opcoes" : "texto", opcoes: lista, obrigatorio: !opc };
+      });
+      var campos = { extras: extras }; U.$$("[data-campo]", mm).forEach(function (x) { campos[x.getAttribute("data-campo")] = x.checked; });
+      var pag = mm.querySelector("#ee-pg").value;
+      if (pag === "online") campos.cpf = true;
+      var linhas = U.$$("[data-op]", mm).map(function (l, k) {
+        var v = l.querySelector("[data-ov]").value.trim();
+        return { id: l.getAttribute("data-op") || null, nome: l.querySelector("[data-on]").value.trim(), valor: v === "" ? null : Math.round(parseFloat(v.replace(/\./g, "").replace(",", ".")) * 100),
+          nivel: l.getAttribute("data-nivel") || null, off: l.getAttribute("data-off") === "1", ordem: k + 1 };
+      }).filter(function (o) { return o.nome; });
+      if (linhas.some(function (o) { return o.valor !== null && !(o.valor >= 0); })) { U.toast("Confira os valores (ex.: 90,00).", "erro"); return false; }
+      if (pag === "online" && linhas.some(function (o) { return !o.off && o.valor > 0 && o.valor < 500; })) { U.toast("Pagamento online exige no mínimo R$ 5,00 por opção.", "erro"); return false; }
+      var at = mm.querySelector("#ee-at").value;
+      var dados = { titulo: t, tipo: mm.querySelector("#ee-tp").value, descricao: mm.querySelector("#ee-ds").value.trim() || null,
+        inicio: new Date(d + "T" + h + ":00-03:00").toISOString(), endereco: mm.querySelector("#ee-e").value.trim() || null,
+        vagas: parseInt(mm.querySelector("#ee-v").value, 10) || null, inscricoes_ate: at ? new Date(at + "T23:59:59-03:00").toISOString() : null,
+        inscricoes_abertas: mm.querySelector("#ee-ab").checked, pagamento: pag, campos: campos,
+        mensagem_confirmacao: mm.querySelector("#ee-m").value.trim() || null, slug: slugify(mm.querySelector("#ee-sl").value.trim() || t) };
+      if (novo) dados.criado_por = S.user.id;
+      var q = novo ? sb.from("eventos").insert(dados).select().single() : sb.from("eventos").update(dados).eq("id", ev.id).select().single();
+      return q.then(function (x) {
+        if (x.error) throw (/eventos_slug_unico/.test(x.error.message) ? new Error("Já existe evento com esse link. Mude o link.") : x.error);
+        var id = x.data.id;
+        return Promise.all(linhas.map(function (o) {
+          var reg = { evento_id: id, nome: o.nome, valor_centavos: o.valor, ordem: o.ordem, ativa: !o.off };
+          return (o.id ? sb.from("evento_opcoes").update(reg).eq("id", o.id) : sb.from("evento_opcoes").insert(reg)).then(function (y) { if (y.error) throw y.error; });
+        })).then(function () {
+          U.toast(novo ? "Evento criado. Copie o link e divulgue 🔥" : "Evento salvo");
+          location.hash = "#/eventos?e=" + id; if (!novo) eventoDetalhe(id);
+        });
+      }).catch(function (e) { U.erro(e); return false; });
+    }
+  }
 
   iniciar();
 })();

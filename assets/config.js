@@ -34,7 +34,8 @@ window.ZXT = {
       data: "2026-11-28",
       hora: "15h30",
       local: "Rua São Nicolau, 309, Felipe Camarão, Natal/RN",
-      texto: "Dia de mostrar a evolução do ano. Alunos aptos, chamem o professor para confirmar a inscrição."
+      texto: "Dia de mostrar a evolução do ano. Confirme o prajied com seu professor e faça a inscrição com pagamento online.",
+      inscricao: "/evento/graduacao-2026"
     }
   ],
 

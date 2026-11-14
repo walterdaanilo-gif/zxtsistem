@@ -18,6 +18,14 @@ module.exports = async (req, res) => {
   const pg = corpo.payment;
   if (!/^PAYMENT_/.test(evento) || !pg) return responder(res, 200, { ok: true, ignorado: evento });
   try {
+    // cobrança de inscrição em evento (criada por /api/evento)
+    if (/^evt:/.test(pg.externalReference || '')) {
+      const resultado = await rpc('processar_pagamento_evento', { p: {
+        evento, payment_id: pg.id, referencia: pg.externalReference, forma: pg.billingType || null,
+        recibo_url: pg.transactionReceiptUrl || null, pago_em: pg.clientPaymentDate || pg.paymentDate || pg.confirmedDate || null
+      } });
+      return responder(res, 200, { ok: true, resultado });
+    }
     const resultado = await rpc('processar_evento_asaas', { p: {
       evento, payment_id: pg.id, subscription_id: pg.subscription || null, customer_id: pg.customer || null,
       valor_centavos: Math.round(Number(pg.value || 0) * 100), vencimento: pg.dueDate || null, forma: pg.billingType || null,

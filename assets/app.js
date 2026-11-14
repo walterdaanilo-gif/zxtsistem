@@ -111,7 +111,8 @@
           "<p><strong>Local:</strong> " + e.local + "</p>" +
           (e.texto ? "<p>" + e.texto + "</p>" : "") +
           '<div class="acoes"><a class="btn btn-borda btn-sm" href="' + maps + '" target="_blank" rel="noopener">Ver no mapa</a>' +
-          '<a class="btn btn-vermelho btn-sm" href="' + linkContato("Olá, ZXT! Quero informações sobre o " + e.titulo + " 🥊") + '" target="_blank" rel="noopener">Quero participar</a></div>' +
+          (e.inscricao ? '<a class="btn btn-vermelho btn-sm" href="' + e.inscricao + '">Fazer inscrição</a></div>'
+            : '<a class="btn btn-vermelho btn-sm" href="' + linkContato("Olá, ZXT! Quero informações sobre o " + e.titulo + " 🥊") + '" target="_blank" rel="noopener">Quero participar</a></div>') +
           "</div></article>";
       }).join("");
     }

@@ -272,3 +272,23 @@ body.portal { background: var(--preto); padding-bottom: 84px; }
 .pix-box { text-align: left; }
 .aluno-atual { margin-top: 14px; padding: 12px; border: 1px dashed #3a3a3a; background: #0c0c0c; }
 .aluno-atual b { color: #fff; }
+
+/* ---------- eventos: formulário público e painel ---------- */
+.ev-info p { margin: 0 0 6px; color: var(--cinza); }
+.ev-info p b { color: #fff; }
+.ev-info .ev-desc { margin-top: 10px; color: #ddd; white-space: pre-line; }
+.ev-opcoes { display: grid; gap: 8px; }
+.ev-opcoes .tipo-op b { font-size: 17px; }
+.ev-link { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ev-link input { flex: 1 1 220px; min-width: 0; background: #0a0a0a; border: 1px solid #2e2e2e; color: #fff; padding: 9px 10px; font: inherit; font-size: 14px; }
+.ev-quebra { display: grid; gap: 6px; }
+.ev-quebra .linha { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; font-size: 14px; padding: 8px 12px; background: #0c0c0c; border: 1px solid var(--borda); }
+.ev-quebra .linha b { font-family: var(--display); font-style: italic; text-transform: uppercase; font-size: 16px; }
+.ev-quebra .linha span { color: var(--cinza); white-space: nowrap; }
+.ev-filtros { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.ev-filtros input, .ev-filtros select { flex: 1 1 160px; min-width: 0; }
+.ev-opc-ed { display: grid; grid-template-columns: 1fr 110px auto; gap: 6px; align-items: center; margin-bottom: 6px; }
+.ev-opc-ed input, .ev-opc-ed select { min-width: 0; background: #0a0a0a; border: 1px solid #2e2e2e; color: #fff; padding: 8px; font: inherit; font-size: 14px; }
+.modal.largo { max-width: 680px; }
+@media (min-width: 900px) { .kpis.k6 { grid-template-columns: repeat(3, 1fr); } }
+.post-texto a { color: #ff6b6b; word-break: break-all; }
