@@ -327,3 +327,4 @@ a.filtro { text-decoration: none; display: inline-block; }
 .lote-barra b { font-family: var(--display); text-transform: uppercase; letter-spacing: 1px; margin-right: auto; }
 @media (min-width: 960px) { .lote-barra { bottom: 12px; } }
 .ev-chk { width: 20px; height: 20px; vertical-align: -3px; margin-right: 6px; accent-color: #3ddc84; }
+.btn-mini.perigo { background: #b3261e; color: #fff; border: 1px solid #b3261e; }

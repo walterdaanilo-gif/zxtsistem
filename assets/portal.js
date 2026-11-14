@@ -631,17 +631,33 @@
   VIEWS.chamada = function () {
     var dia = (location.hash.match(/dia=(\d{4}-\d{2}-\d{2})/) || [])[1] || U.hojeISO();
     var ini = new Date(dia + "T00:00:00-03:00"), fim = new Date(dia + "T23:59:59-03:00");
-    var q = sb.from("aulas").select("id,inicio,fim,status,turma_id, turmas!inner(nome,professor_id,coletiva,sparring)").gte("inicio", ini.toISOString()).lte("inicio", fim.toISOString()).order("inicio");
+    var q = sb.from("aulas").select("id,inicio,fim,status,motivo_cancelamento,turma_id, turmas!inner(nome,professor_id,coletiva,sparring)").gte("inicio", ini.toISOString()).lte("inicio", fim.toISOString()).order("inicio");
     return q.then(chk).then(function (aulas) {
       if (S.modo === "professor") aulas = aulas.filter(function (a) { return !a.turmas.professor_id || a.turmas.professor_id === S.user.id; });
       tela.innerHTML = "<h1><em>Chamada</em></h1><p class=\"sub\">Escolha a aula para marcar presença. O check-in por QR aparece aqui na hora.</p>" +
         '<div class="busca"><input type="date" id="ch-dia" value="' + dia + '"></div>' +
         (aulas.length ? '<div class="lista">' + aulas.map(function (a) {
-          return '<div class="item"><div><h3>' + U.hora(a.inicio) + " · " + esc(a.turmas.nome) + "</h3><p>" + (a.status === "cancelada" ? "Cancelada" : "Até " + U.hora(a.fim)) + "</p></div>" +
-            '<div class="acoes"><button class="btn-mini" data-aula="' + a.id + '">Abrir chamada</button></div></div>';
+          var canc = a.status === "cancelada";
+          return '<div class="item' + (canc ? " inativa" : "") + '"><div><h3>' + U.hora(a.inicio) + " · " + esc(a.turmas.nome) + "</h3><p>" + (canc ? "Excluída" + (a.motivo_cancelamento ? ": " + esc(a.motivo_cancelamento) : "") : "Até " + U.hora(a.fim)) + "</p></div>" +
+            '<div class="acoes">' + (canc ? '<button class="btn-mini claro" data-restaurar="' + a.id + '">Restaurar aula</button>'
+              : '<button class="btn-mini" data-aula="' + a.id + '">Abrir chamada</button> <button class="btn-mini claro" data-excluir-aula="' + a.id + '">Excluir aula</button>') + "</div></div>";
         }).join("") + "</div>" : '<div class="vazio-box">Nenhuma aula nesse dia.</div>');
       $("#ch-dia").onchange = function () { location.hash = "#/chamada?dia=" + this.value; };
-      tela.onclick = function (e) { var b = e.target.closest("[data-aula]"); if (b) abrirChamada(aulas.filter(function (a) { return a.id === b.getAttribute("data-aula"); })[0]); };
+      tela.onclick = function (e) {
+        var b = e.target.closest("[data-aula]"); if (b) return abrirChamada(aulas.filter(function (a) { return a.id === b.getAttribute("data-aula"); })[0]);
+        if ((b = e.target.closest("[data-restaurar]"))) return sb.rpc("restaurar_aula", { p_aula: b.getAttribute("data-restaurar") }).then(function (x) { if (x.error) return U.erro(x.error); U.toast("Aula restaurada"); rotear(); });
+        if ((b = e.target.closest("[data-excluir-aula]"))) {
+          var a = aulas.filter(function (x) { return x.id === b.getAttribute("data-excluir-aula"); })[0];
+          modal("Excluir aula", "<p><b>" + esc(a.turmas.nome) + "</b> · " + esc(U.diaSemana(a.inicio)) + " às " + U.hora(a.inicio) + "</p>" +
+            '<p style="color:var(--cinza);font-size:14px">A aula sai da chamada, aparece como cancelada na agenda dos alunos, não aceita check-in e os alunos da turma recebem notificação. Dá para restaurar depois.</p>' +
+            '<div class="campo"><label for="xa-m">Motivo (aparece para os alunos)</label><input id="xa-m" placeholder="Ex.: feriado, evento na academia"></div>',
+            [["Cancelar", null, "claro"], ["Excluir aula", function (m) {
+              return sb.rpc("excluir_aula", { p_aula: a.id, p_motivo: m.querySelector("#xa-m").value.trim() || null }).then(function (x) {
+                if (x.error) { U.erro(x.error); return false; } U.toast("Aula excluída. " + (x.data || 0) + " aluno(s) avisado(s)."); rotear();
+              });
+            }, "perigo"]]);
+        }
+      };
     });
   };
 
@@ -786,8 +802,30 @@
           });
         }]);
       }
+      var ehEquipeAlvo = p.tipo_cadastro === "professor" || papeis.indexOf("professor") >= 0 || papeis.indexOf("admin") >= 0;
+      if (!ehEquipeAlvo && id !== S.user.id) bots.push(["Excluir aluno", function () { excluirAluno(id, p); }, "perigo"]);
       modal(p.nome || "Aluno", html, bots);
     }).catch(function (e) { U.erro(e); });
+  }
+
+  function excluirAluno(id, p) {
+    modal("Excluir " + (p.nome || "aluno"), '<p style="margin:0 0 10px">Isso apaga a conta, o acesso e os dados pessoais de <b>' + esc(p.nome || p.email) + '</b>. Não tem como desfazer.</p>' +
+      '<div class="ev-info"><p>✅ Mensalidades pagas e inscrições em eventos ficam no financeiro, com o nome.</p><p>🚫 Assinatura e cobranças em aberto no Asaas são canceladas.</p><p>🗑️ Saem: matrículas, presenças, graduações, postagens e notificações dele.</p></div>' +
+      '<p style="color:#f2a20c;font-size:14px">Se o aluno só parou de treinar, prefira mudar o status para inativo ou trancado: o histórico fica e ele volta quando quiser.</p>' +
+      '<div class="campo" style="margin-top:10px"><label for="ex-m">Motivo (fica registrado)</label><input id="ex-m" placeholder="Ex.: cadastro duplicado, pediu exclusão (LGPD)"></div>' +
+      '<div class="campo" style="margin-top:10px"><label for="ex-c">Para confirmar, digite EXCLUIR</label><input id="ex-c" autocomplete="off"></div>',
+      [["Cancelar", null, "claro"], ["Excluir de vez", function (m) {
+        if (m.querySelector("#ex-c").value.trim().toUpperCase() !== "EXCLUIR") { U.toast("Digite EXCLUIR para confirmar.", "erro"); return false; }
+        var bt = m.querySelector(".rodape-modal .perigo"); if (bt) { bt.disabled = true; bt.textContent = "Excluindo..."; }
+        return sb.auth.getSession().then(function (ss) {
+          return fetch("/api/excluir-aluno", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + ss.data.session.access_token },
+            body: JSON.stringify({ aluno_id: id, motivo: m.querySelector("#ex-m").value.trim() || null }) });
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (x) {
+          if (!x.ok) { U.toast(x.j.erro || "Não deu para excluir.", "erro"); if (bt) { bt.disabled = false; bt.textContent = "Excluir de vez"; } return false; }
+          U.toast("Aluno excluído. " + (x.j.mensalidades_pagas_mantidas || 0) + " mensalidade(s) paga(s) mantida(s) no financeiro.");
+          U.$$(".modal-fundo").forEach(function (f) { f.remove(); }); rotear();
+        }).catch(function () { U.toast("Sem conexão com o servidor.", "erro"); return false; });
+      }, "perigo"]]);
   }
 
   // =================================================================== ADMIN
@@ -923,7 +961,7 @@
         '<div class="busca"><select id="cb-f">' + [["abertas", "Em aberto e atrasadas"], ["atrasado", "Só atrasadas"], ["pago", "Pagas"], ["todas", "Todas"]].map(function (o) {
           return '<option value="' + o[0] + '"' + (o[0] === filtro ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></div>" +
         (lista.length ? '<div class="lista">' + lista.map(function (c) {
-          var nome = c.profiles ? c.profiles.nome : "";
+          var nome = (c.profiles && c.profiles.nome) || (c.aluno_nome ? c.aluno_nome + " (excluído)" : "");
           return '<div class="item' + (c.status === "atrasado" ? " destaque" : "") + '"><div><h3>' + esc(nome) + " · " + U.reais(c.valor_final_centavos) + "</h3><p>" + esc(c.descricao) + " · vence " + U.data(c.vencimento) +
             (c.baixa_manual_por ? " · baixa manual (" + esc(c.forma_pagamento) + ")" : "") + "</p></div><div class=\"acoes\">" + tagStatus(c.status) +
             ((c.status === "em_aberto" || c.status === "atrasado") ? ' <button class="btn-mini verde" data-baixa="' + c.id + '">Dar baixa</button>' +
@@ -2155,6 +2193,7 @@
   // =================================================================== NOTIFICAÇÕES
   var TIPOS_NOTIF = {
     cobranca: ["Mensalidades", "Mensalidade nova, lembrete 3 dias antes do vencimento e atraso", "aluno"],
+    aula: ["Aulas canceladas", "Quando uma aula da sua turma é excluída pela equipe", "aluno"],
     comprovante: ["Comprovantes de pagamento", "Pagamento confirmado, com o link do recibo", "aluno"],
     post: ["Postagens do feed", "Avisos da equipe e postagens novas na comunidade", "todos"],
     pagamento: ["Pagamentos dos alunos", "Mensalidade paga (Asaas ou baixa manual) e mensalidade em atraso", "equipe"],
@@ -2162,7 +2201,7 @@
     evento_pagamento: ["Pagamentos de eventos", "Inscrição paga", "equipe"],
     cadastro: ["Novos cadastros", "Aluno ou professor aguardando aprovação", "equipe"]
   };
-  var IC_NOTIF = { cobranca: "💳", comprovante: "✅", post: "💬", pagamento: "💰", evento_inscricao: "🎟️", evento_pagamento: "💰", cadastro: "👤", geral: "🔔" };
+  var IC_NOTIF = { aula: "📅", cobranca: "💳", comprovante: "✅", post: "💬", pagamento: "💰", evento_inscricao: "🎟️", evento_pagamento: "💰", cadastro: "👤", geral: "🔔" };
   function ehEquipe() { return S.papeis.indexOf("admin") >= 0 || S.papeis.indexOf("professor") >= 0; }
   function tempoNotif(iso) {
     var min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
