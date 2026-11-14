@@ -1,4 +1,4 @@
-// POST /api/excluir-aluno  { aluno_id, motivo }   (admin ou professor logado)
+// POST /api/excluir-aluno  { aluno_id, motivo }   (só o admin)
 // 1) cancela no Asaas a assinatura e as cobranças em aberto do aluno (para não continuar cobrando)
 // 2) exclui conta e dados pessoais; mensalidades pagas e inscrições ficam no financeiro com o nome
 const { asaas, sb, rpc, usuarioDoToken, responder, lerCorpo } = require('./_lib');
@@ -14,12 +14,7 @@ module.exports = async (req, res) => {
     const user = await usuarioDoToken(req);
     if (!user || !user.id) return responder(res, 401, { erro: 'Entre na sua conta.' });
     const papeis = (await sb('/rest/v1/user_roles?select=papel&user_id=eq.' + user.id)).map(x => x.papel);
-    const admin = papeis.includes('admin'), prof = papeis.includes('professor');
-    if (!admin && !prof) return responder(res, 403, { erro: 'Só a equipe exclui alunos.' });
-    if (!admin) {
-      const eu = await sb('/rest/v1/profiles?select=status&id=eq.' + user.id);
-      if (!eu[0] || eu[0].status !== 'ativo') return responder(res, 403, { erro: 'Seu acesso de professor ainda não está ativo.' });
-    }
+    if (!papeis.includes('admin')) return responder(res, 403, { erro: 'Só a administração exclui cadastros.' });
     const corpo = await lerCorpo(req);
     const id = String(corpo.aluno_id || '');
     if (!/^[0-9a-f-]{36}$/.test(id)) return responder(res, 400, { erro: 'Aluno inválido.' });

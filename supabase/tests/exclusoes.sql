@@ -18,14 +18,16 @@ begin
   insert into matriculas values (al2, t1);
 
   perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
-  x := excluir_aluno(al, pf, 'Saiu da academia');
+  begin perform excluir_aluno(al, pf, 'professor tentando'); ok := false; exception when others then ok := sqlerrm like 'Só a administração%'; end;
+  r := r || jsonb_build_object('0_professor_nao_exclui', ok and exists (select 1 from profiles where id = al));
+  x := excluir_aluno(al, (select user_id from user_roles where papel = 'admin' limit 1), 'Saiu da academia');
   r := r || jsonb_build_object(
     '1_aluno_excluido', not exists (select 1 from profiles where id = al) and not exists (select 1 from auth.users where id = al),
     '2_mensalidade_paga_mantida', exists (select 1 from cobrancas where aluno_nome = 'Aluno Exclusao' and status = 'pago' and aluno_id is null),
     '3_aberta_cancelada', exists (select 1 from cobrancas where aluno_nome = 'Aluno Exclusao' and descricao = 'Aberta' and status = 'cancelado'),
     '4_inscricao_mantida', exists (select 1 from evento_inscricoes where evento_id = ev and aluno_id is null and status = 'pago'),
-    '5_auditoria', exists (select 1 from auditoria where acao = 'EXCLUSAO_ALUNO' and registro_id = al::text and user_id = pf));
-  begin perform excluir_aluno(pf, pf, null); ok := false; exception when others then ok := sqlerrm like 'Professor não é excluído%'; end;
+    '5_auditoria', exists (select 1 from auditoria where acao = 'EXCLUSAO_ALUNO' and registro_id = al::text));
+  begin perform excluir_aluno(pf, (select user_id from user_roles where papel = 'admin' limit 1), null); ok := false; exception when others then ok := sqlerrm like 'Professor não é excluído%'; end;
   r := r || jsonb_build_object('6_professor_nao_excluido_por_aqui', ok);
   perform set_config('request.jwt.claims', '', true);
 

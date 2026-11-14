@@ -808,7 +808,7 @@
         }]);
       }
       var ehEquipeAlvo = p.tipo_cadastro === "professor" || papeis.indexOf("professor") >= 0 || papeis.indexOf("admin") >= 0;
-      if (!ehEquipeAlvo && id !== S.user.id) bots.push(["Excluir aluno", function () { excluirAluno(id, p); }, "perigo"]);
+      if (admin && !ehEquipeAlvo && id !== S.user.id) bots.push(["Excluir aluno", function () { excluirAluno(id, p); }, "perigo"]);
       modal(p.nome || "Aluno", html, bots);
     }).catch(function (e) { U.erro(e); });
   }
