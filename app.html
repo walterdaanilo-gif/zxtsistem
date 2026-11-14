@@ -16,15 +16,29 @@
 </head>
 <body class="portal">
   <header class="app-topo">
-    <div class="wrap">
-      <a class="marca" href="/app"><img src="/assets/logo-zxt.png" alt="ZXT" width="40" height="34"></a>
+    <div class="topo-in">
+      <a class="marca-portal" href="/app">
+        <img src="/assets/logo-zxt.png" alt="ZXT" width="46" height="40">
+        <span class="mp-txt"><b>Zulu <em>Xtreme</em> Team</b><small id="portal-de">Portal</small></span>
+      </a>
       <div class="troca-papel" id="troca-papel"></div>
-      <div class="quem"><b id="quem-nome">...</b><span id="quem-papel"></span></div>
-      <button class="sair" id="sair" title="Sair">Sair</button>
+      <div class="topo-dir">
+        <span class="topo-data" id="topo-data"></span>
+        <a class="topo-site" href="/" title="Ir para o site da ZXT">Site</a>
+        <span class="topo-av" id="topo-av">Z</span>
+        <div class="quem"><b id="quem-nome">...</b><span id="quem-papel"></span></div>
+        <button class="sair" id="sair" title="Sair do portal"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span>Sair</span></button>
+      </div>
     </div>
   </header>
   <div class="app-corpo">
-    <nav class="nav" id="nav" aria-label="Menu do portal"></nav>
+    <aside class="lateral">
+      <nav class="nav" id="nav" aria-label="Menu do portal"></nav>
+      <div class="lateral-pe">
+        <p>Disciplina <span>•</span> Respeito<br>Foco <span>•</span> Evolução</p>
+        <a href="/">zxtsistem.vercel.app</a>
+      </div>
+    </aside>
     <main class="tela" id="tela"><p class="carregando">Carregando...</p></main>
   </div>
 

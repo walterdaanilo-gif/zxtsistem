@@ -191,3 +191,44 @@ body.portal { background: var(--preto); padding-bottom: 84px; }
 .app-corpo > * { min-width: 0; }
 
 .barra-grad { display: inline-block; height: 14px; border: 1px solid #555; vertical-align: middle; flex: 0 0 auto; }
+
+/* ---------- topo do portal (v2) ---------- */
+.app-topo { border-bottom: 1px solid #1c1c1c; background: rgba(7,7,7,.96); }
+.app-topo::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--vermelho); opacity: .8; }
+.topo-in { display: flex; align-items: center; gap: 14px; height: 62px; padding: 0 14px; }
+.marca-portal { display: flex; align-items: center; gap: 12px; text-decoration: none; color: #fff; }
+.marca-portal img { height: 34px; width: auto; }
+.mp-txt { display: none; line-height: 1.05; }
+.mp-txt b { display: block; font-family: var(--display); font-weight: 800; font-style: italic; text-transform: uppercase; font-size: 19px; letter-spacing: .5px; }
+.mp-txt b em { color: var(--vermelho); font-style: italic; }
+.mp-txt small { display: block; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--cinza-2); margin-top: 3px; }
+.topo-dir { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.topo-data, .topo-site { display: none; }
+.topo-av { width: 36px; height: 36px; border-radius: 50%; background: var(--vermelho); color: #fff; display: none; place-items: center; font-family: var(--display); font-weight: 800; font-size: 18px; flex: 0 0 36px; }
+.app-topo .quem { margin-left: 0; text-align: right; }
+.sair { display: inline-flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--borda); color: var(--cinza); padding: 8px 10px; cursor: pointer; font-size: 13px; }
+.sair:hover { color: #fff; border-color: #555; }
+.sair span { display: none; }
+.lateral-pe { display: none; }
+@media (min-width: 600px) { .mp-txt { display: block; } }
+@media (min-width: 960px) {
+  .app-topo::after { background: linear-gradient(90deg, var(--vermelho) 0 230px, transparent 230px); opacity: 1; }
+  .topo-in { height: 68px; padding: 0 28px 0 22px; gap: 22px; }
+  .marca-portal { width: 208px; }
+  .marca-portal img { height: 40px; }
+  .topo-data { display: block; font-size: 13px; color: var(--cinza); padding-right: 16px; border-right: 1px solid #222; }
+  .topo-site { display: block; font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: var(--cinza); text-decoration: none; padding-right: 16px; border-right: 1px solid #222; }
+  .topo-site:hover { color: #fff; }
+  .topo-av { display: grid; }
+  .app-topo .quem { text-align: left; }
+  .sair span { display: inline; }
+  .app-corpo { grid-template-columns: 230px 1fr; min-height: calc(100vh - 68px); }
+  .lateral { position: sticky; top: 68px; height: calc(100vh - 68px); display: flex; flex-direction: column; border-right: 1px solid #1a1a1a; background: #090909;
+    background-image: radial-gradient(rgba(255,255,255,.035) 1px, transparent 1.6px); background-size: 7px 7px; }
+  .lateral .nav { position: static; height: auto; flex: 1; border-right: 0; background: transparent; }
+  .lateral-pe { display: block; padding: 18px 24px 22px; border-top: 1px solid #1a1a1a; }
+  .lateral-pe p { margin: 0 0 6px; font-family: var(--display); font-weight: 700; font-style: italic; text-transform: uppercase; font-size: 13px; letter-spacing: 1.5px; color: #cfcfcf; line-height: 1.5; }
+  .lateral-pe p span { color: var(--vermelho); }
+  .lateral-pe a { font-size: 12px; color: var(--cinza-2); text-decoration: none; }
+  .tela { padding: 40px 48px 64px; max-width: 1180px; }
+}
