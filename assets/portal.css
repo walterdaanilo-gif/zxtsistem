@@ -292,3 +292,34 @@ body.portal { background: var(--preto); padding-bottom: 84px; }
 .modal.largo { max-width: 680px; }
 @media (min-width: 900px) { .kpis.k6 { grid-template-columns: repeat(3, 1fr); } }
 .post-texto a { color: #ff6b6b; word-break: break-all; }
+
+/* ---------- sino, notificações, menu "Mais" no celular, relatório ---------- */
+.topo-sino { position: relative; display: grid; place-items: center; width: 38px; height: 38px; color: #ddd; border: 1px solid var(--borda); text-decoration: none; flex: 0 0 auto; }
+.topo-sino:hover { color: #fff; border-color: #444; }
+.sino-n { position: absolute; top: -6px; right: -6px; background: var(--vermelho); color: #fff; font-size: 11px; font-weight: 700; min-width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; padding: 0 5px; }
+.notifs { gap: 6px; }
+.notif { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: start; text-align: left; width: 100%; padding: 14px; background: var(--card); border: 1px solid var(--borda); color: #fff; font: inherit; cursor: pointer; }
+.notif.nova { border-left: 3px solid var(--vermelho); background: #140708; }
+.notif .nt-ic { font-size: 22px; line-height: 1; }
+.notif b { display: block; font-size: 15px; }
+.notif small { display: block; color: var(--cinza); font-size: 14px; margin-top: 3px; }
+.notif em { font-style: normal; color: var(--cinza-2); font-size: 12px; white-space: nowrap; }
+.nav-mais { display: none; }
+@media (max-width: 959px) {
+  .nav a:nth-of-type(n+5) { display: none; }
+  .nav-mais { display: grid; flex: 1 0 auto; min-width: 72px; justify-items: center; gap: 3px; padding: 10px 8px 12px; background: none; border: 0; color: var(--cinza-2); cursor: pointer;
+    font-family: var(--display); font-weight: 700; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; position: relative; }
+  .nav-mais svg { width: 22px; height: 22px; }
+  .nav-mais.ativo { color: #fff; }
+  .nav.aberto { flex-wrap: wrap; max-height: 75vh; overflow-y: auto; box-shadow: 0 -12px 30px rgba(0,0,0,.6); }
+  .nav.aberto a, .nav.aberto .nav-mais { display: grid; flex: 0 0 25%; min-width: 0; }
+  .topo-sino { width: 34px; height: 34px; }
+}
+a.filtro { text-decoration: none; display: inline-block; }
+.mini-campo { display: grid; gap: 4px; font-size: 12px; color: var(--cinza); flex: 1 1 140px; }
+.mini-campo input { background: #0a0a0a; border: 1px solid #2e2e2e; color: #fff; padding: 8px; font: inherit; font-size: 14px; min-width: 0; color-scheme: dark; }
+.tabela-rel { overflow-x: auto; border: 1px solid var(--borda); }
+.tabela-rel table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px; }
+.tabela-rel th { text-align: right; font-family: var(--display); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; color: var(--cinza); padding: 10px 12px; background: #0c0c0c; }
+.tabela-rel td { text-align: right; padding: 10px 12px; border-top: 1px solid #1c1c1c; white-space: nowrap; }
+.tabela-rel th:first-child, .tabela-rel td:first-child { text-align: left; white-space: normal; }

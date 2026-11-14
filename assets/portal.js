@@ -18,16 +18,19 @@
     funil: '<path d="M3 4h18l-7 8v7l-4 2v-9z"/>',
     comunidade: '<path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>',
     professor: '<circle cx="12" cy="7" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/><path d="M9 14l3 3 3-3"/>',
+    sino: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+    mais: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
     evento: '<path d="M4 7h16v13H4zM4 11h16M9 3v6M15 3v6"/><path d="M10 15.5l1.5 1.5 3-3"/>',
     config: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'
   };
   function ic(n) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + I[n] + "</svg>"; }
 
   var MENUS = {
-    aluno: [["comunidade", "Comunidade", "comunidade"], ["inicio", "Início", "casa"], ["agenda", "Agenda", "agenda"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["graduacao", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
-    professor: [["chamada", "Chamada", "chamada"], ["aprovacoes", "Aprovações", "aprovar"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["cobrancas", "Financeiro", "dinheiro"], ["finturmas", "Minhas turmas", "grupo"], ["eventos", "Eventos", "evento"], ["graduacoes", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
-    admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["professores", "Professores", "professor"], ["comunidade", "Comunidade", "comunidade"], ["eventos", "Eventos", "evento"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["config", "Configurações", "config"], ["perfil", "Meu perfil", "perfil"]]
+    aluno: [["comunidade", "Comunidade", "comunidade"], ["inicio", "Início", "casa"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["agenda", "Agenda", "agenda"], ["graduacao", "Graduação", "faixa"], ["notificacoes", "Notificações", "sino"], ["perfil", "Perfil", "perfil"]],
+    professor: [["chamada", "Chamada", "chamada"], ["eventos", "Eventos", "evento"], ["aprovacoes", "Aprovações", "aprovar"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["cobrancas", "Financeiro", "dinheiro"], ["finturmas", "Minhas turmas", "grupo"], ["graduacoes", "Graduação", "faixa"], ["notificacoes", "Notificações", "sino"], ["perfil", "Perfil", "perfil"]],
+    admin: [["painel", "Painel", "painel"], ["eventos", "Eventos", "evento"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["professores", "Professores", "professor"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["config", "Configurações", "config"], ["notificacoes", "Notificações", "sino"], ["perfil", "Meu perfil", "perfil"]]
   };
+
   var NOME_PAPEL = { aluno: "Aluno", professor: "Professor", admin: "Administração" };
 
   // ---------------------------------------------------------------- utilidades de tela
@@ -221,7 +224,9 @@
     $("#portal-de").textContent = S.modo === "aluno" ? "Portal do aluno" : S.modo === "professor" ? "Portal do professor" : "Portal da equipe";
     $("#nav").innerHTML = MENUS[S.modo].map(function (m) {
       return '<a href="#/' + m[0] + '" data-r="' + m[0] + '">' + ic(m[2]) + "<span>" + m[1] + '</span><span class="bolha" hidden></span></a>';
-    }).join("");
+    }).join("") + '<button type="button" class="nav-mais" id="nav-mais">' + ic("mais") + "<span>Mais</span></button>";
+    $("#nav-mais").onclick = function () { var n = $("#nav"); n.classList.toggle("aberto"); this.querySelector("span").textContent = n.classList.contains("aberto") ? "Fechar" : "Mais"; };
+    atualizarSino();
     if (S.modo === "professor") pendentesDoProfessor().then(function (l) {
       var b = $('#nav [data-r="aprovacoes"] .bolha');
       if (b) { b.hidden = !l.length; b.textContent = l.length; }
@@ -242,6 +247,12 @@
     var permitido = MENUS[S.modo].some(function (m) { return m[0] === r; });
     if (!permitido) r = MENUS[S.modo][0][0];
     U.$$("#nav a").forEach(function (a) { a.classList.toggle("ativo", a.getAttribute("data-r") === r); });
+    $("#nav").classList.remove("aberto");
+    if ($("#nav-mais")) {
+      $("#nav-mais").querySelector("span").textContent = "Mais";
+      $("#nav-mais").classList.toggle("ativo", MENUS[S.modo].map(function (m) { return m[0]; }).indexOf(r) >= 4);
+    }
+    atualizarSino();
     tela.innerHTML = '<p class="carregando">Carregando...</p>';
     window.scrollTo(0, 0);
     Promise.resolve().then(function () { return VIEWS[r](); }).catch(falhou);
@@ -1753,10 +1764,11 @@
   };
 
   function eventosLista() {
-    var admin = S.modo === "admin";
+    var verRel = /[?&]ver=relatorio/.test(location.hash);
     return Promise.all([
       sb.from("eventos").select("*").order("inicio", { ascending: false }).then(chk),
-      sb.from("evento_inscricoes").select("evento_id,status,valor_centavos").then(chk)
+      sb.from("evento_inscricoes").select("evento_id,status,valor_centavos,respostas,opcao_id").then(chk),
+      sb.from("evento_opcoes").select("id,nome,evento_id").then(chk)
     ]).then(function (r) {
       var evs = r[0], ins = r[1], hoje = new Date();
       function card(ev) {
@@ -1770,9 +1782,12 @@
           (ev.slug ? ' <button class="btn-mini claro" data-copiar="' + esc(linkEvento(ev)) + '">Copiar link</button>' : "") +
           ' <a class="btn-mini" href="#/eventos?e=' + ev.id + '">Abrir</a></div></div>';
       }
-      tela.innerHTML = "<h1><em>Eventos</em></h1><p class=\"sub\">Aulões, exames e eventos da academia. Cada evento tem um link de inscrição com pagamento no próprio formulário.</p>" +
-        (admin ? '<div class="busca"><button class="btn-mini" id="novo-ev">Criar evento</button></div>' : "") +
-        (evs.length ? '<div class="lista">' + evs.map(card).join("") + "</div>" : '<div class="vazio-box">Nenhum evento ainda.</div>');
+      var rel = verRel ? relatorioEventos(evs, ins, r[2]) : null;
+      tela.innerHTML = "<h1><em>Eventos</em></h1><p class=\"sub\">Aulões, exames e eventos da academia. Cada evento tem um link de inscrição com pagamento no próprio formulário, e tudo fica gravado no sistema.</p>" +
+        '<div class="filtros"><a class="filtro" href="#/eventos" aria-pressed="' + !verRel + '">Eventos</a><a class="filtro" href="#/eventos?ver=relatorio" aria-pressed="' + verRel + '">Relatório e receita</a></div>' +
+        (verRel ? rel.html : '<div class="busca"><button class="btn-mini" id="novo-ev">Criar evento</button></div>' +
+          (evs.length ? '<div class="lista">' + evs.map(card).join("") + "</div>" : '<div class="vazio-box">Nenhum evento ainda.</div>'));
+      if (rel) rel.ligar();
       tela.onclick = function (e) {
         var b = e.target.closest("[data-copiar]"); if (b) return copiar(b.getAttribute("data-copiar"));
         if (e.target.id === "novo-ev") editorEvento(null, []);
@@ -1781,7 +1796,7 @@
   }
 
   function eventoDetalhe(evId) {
-    var admin = S.modo === "admin";
+    var admin = true;   // admin e professores gerenciam eventos
     var q = new URLSearchParams((location.hash.split("?")[1] || ""));
     var f = { busca: q.get("q") || "", st: q.get("st") || "", op: q.get("op") || "", x: q.get("x") || "" };
     return Promise.all([
@@ -2070,5 +2085,150 @@
     }
   }
 
+  // =================================================================== NOTIFICAÇÕES
+  var TIPOS_NOTIF = {
+    cobranca: ["Mensalidades", "Mensalidade nova, lembrete 3 dias antes do vencimento e atraso", "aluno"],
+    comprovante: ["Comprovantes de pagamento", "Pagamento confirmado, com o link do recibo", "aluno"],
+    post: ["Postagens do feed", "Avisos da equipe e postagens novas na comunidade", "todos"],
+    pagamento: ["Pagamentos dos alunos", "Mensalidade paga (Asaas ou baixa manual) e mensalidade em atraso", "equipe"],
+    evento_inscricao: ["Inscrições em eventos", "Cada inscrição nova, pelo link, Google Forms ou manual", "equipe"],
+    evento_pagamento: ["Pagamentos de eventos", "Inscrição paga", "equipe"],
+    cadastro: ["Novos cadastros", "Aluno ou professor aguardando aprovação", "equipe"]
+  };
+  var IC_NOTIF = { cobranca: "💳", comprovante: "✅", post: "💬", pagamento: "💰", evento_inscricao: "🎟️", evento_pagamento: "💰", cadastro: "👤", geral: "🔔" };
+  function ehEquipe() { return S.papeis.indexOf("admin") >= 0 || S.papeis.indexOf("professor") >= 0; }
+  function tempoNotif(iso) {
+    var min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (min < 1) return "agora"; if (min < 60) return min + " min"; if (min < 1440) return Math.round(min / 60) + " h";
+    return U.data(new Date(iso).toLocaleDateString("sv-SE", { timeZone: "America/Fortaleza" }));
+  }
+  function atualizarSino() {
+    if (!S.user) return;
+    sb.from("notificacoes").select("id", { count: "exact", head: true }).eq("user_id", S.user.id).eq("lida", false).then(function (r) {
+      var n = r.count || 0;
+      U.$$(".sino-n, #nav [data-r=\"notificacoes\"] .bolha").forEach(function (b) { b.hidden = !n; b.textContent = n > 99 ? "99+" : n; });
+    });
+  }
+  function abrirLinkNotif(l) {
+    if (!l) return;
+    if (/^https?:/.test(l)) return window.open(l, "_blank", "noopener");
+    if (l.indexOf("/app#") === 0) { location.hash = l.slice(4); return; }
+    location.href = l;
+  }
+
+  VIEWS.notificacoes = function () {
+    return Promise.all([
+      sb.from("notificacoes").select("*").eq("user_id", S.user.id).order("created_at", { ascending: false }).limit(100).then(chk),
+      sb.from("notif_prefs").select("desligados").eq("user_id", S.user.id).maybeSingle().then(chk)
+    ]).then(function (r) {
+      var ns = r[0], desl = (r[1] && r[1].desligados) || [];
+      var naoLidas = ns.filter(function (n) { return !n.lida; }).length;
+      var tipos = Object.keys(TIPOS_NOTIF).filter(function (k) { var g = TIPOS_NOTIF[k][2]; return g === "todos" || (g === "equipe" ? ehEquipe() : true); });
+      tela.innerHTML = "<h1><em>Notificações</em></h1><p class=\"sub\">" + (naoLidas ? naoLidas + " não lida(s)." : "Tudo em dia.") + " Escolha abaixo o que você quer receber.</p>" +
+        '<div class="busca">' + (naoLidas ? '<button class="btn-mini" id="nt-todas">Marcar todas como lidas</button>' : "") + '<button class="btn-mini claro" id="nt-config">Configurar notificações</button></div>' +
+        (ns.length ? '<div class="lista notifs">' + ns.map(function (n) {
+          return '<button class="notif' + (n.lida ? "" : " nova") + '" data-nt="' + n.id + '"><span class="nt-ic">' + (IC_NOTIF[n.tipo] || "🔔") + "</span><span><b>" + esc(n.titulo) + "</b>" +
+            (n.corpo ? "<small>" + esc(n.corpo) + "</small>" : "") + "</span><em>" + tempoNotif(n.created_at) + "</em></button>";
+        }).join("") + "</div>" : '<div class="vazio-box">Nenhuma notificação ainda. Quando tiver mensalidade, pagamento, postagem ou evento, aparece aqui.</div>');
+      if ($("#nt-todas")) $("#nt-todas").onclick = function () {
+        sb.from("notificacoes").update({ lida: true }).eq("user_id", S.user.id).eq("lida", false).then(function () { atualizarSino(); rotear(); });
+      };
+      $("#nt-config").onclick = function () {
+        modal("O que você quer receber", tipos.map(function (k) {
+          return '<label class="check" style="margin-bottom:12px"><input type="checkbox" data-tp="' + k + '"' + (desl.indexOf(k) < 0 ? " checked" : "") + "> <span><b style=\"color:#fff\">" + TIPOS_NOTIF[k][0] + "</b><br>" + TIPOS_NOTIF[k][1] + "</span></label>";
+        }).join(""), [["Cancelar", null, "claro"], ["Salvar", function (m) {
+          var off = U.$$("[data-tp]", m).filter(function (c) { return !c.checked; }).map(function (c) { return c.getAttribute("data-tp"); });
+          return sb.from("notif_prefs").upsert({ user_id: S.user.id, desligados: off, updated_at: new Date().toISOString() }).then(function (x) {
+            if (x.error) { U.erro(x.error); return false; } U.toast("Preferências salvas"); rotear();
+          });
+        }]]);
+      };
+      tela.onclick = function (e) {
+        var b = e.target.closest("[data-nt]"); if (!b) return;
+        var n = ns.filter(function (x) { return x.id === b.getAttribute("data-nt"); })[0];
+        var ir = function () { abrirLinkNotif(n.link); };
+        if (!n.lida) sb.from("notificacoes").update({ lida: true }).eq("id", n.id).then(function () { b.classList.remove("nova"); atualizarSino(); ir(); });
+        else ir();
+      };
+    });
+  };
+
+  // =================================================================== RELATÓRIO DE EVENTOS
+  function campoExtra(ev, re) { return (((ev.campos || {}).extras) || []).filter(function (x) { return re.test(x.rotulo) || re.test(x.id); })[0]; }
+  function relatorioEventos(evs, ins, ops) {
+    var q = new URLSearchParams((location.hash.split("?")[1] || ""));
+    var f = { de: q.get("de") || "", ate: q.get("ate") || "", ev: q.get("ev") || "", prof: q.get("prof") || "", acad: q.get("acad") || "" };
+    var porId = {}; evs.forEach(function (e) { porId[e.id] = e; });
+    var opNome = {}; ops.forEach(function (o) { opNome[o.id] = o.nome; });
+    function valorDe(i, re) { var ev = porId[i.evento_id], c = ev && campoExtra(ev, re); return c ? ((i.respostas || {})[c.id] || "") : ""; }
+    var RP = /professor/i, RA = /academia|unidade|filial/i;
+    var evsF = evs.filter(function (e) {
+      var d = new Date(e.inicio).toLocaleDateString("sv-SE", { timeZone: "America/Fortaleza" });
+      return (!f.de || d >= f.de) && (!f.ate || d <= f.ate) && (!f.ev || e.id === f.ev);
+    });
+    var ids = {}; evsF.forEach(function (e) { ids[e.id] = 1; });
+    var base = ins.filter(function (i) {
+      return ids[i.evento_id] && i.status !== "cancelado" && (!f.prof || valorDe(i, RP) === f.prof) && (!f.acad || valorDe(i, RA) === f.acad);
+    });
+    var profs = {}, acads = {};
+    ins.forEach(function (i) { if (!ids[i.evento_id]) return; var p = valorDe(i, RP), a = valorDe(i, RA); if (p) profs[p] = 1; if (a) acads[a] = 1; });
+    function agrupar(chave) {
+      var g = {};
+      base.forEach(function (i) {
+        var k = chave(i) || "Não informado";
+        var x = g[k] = g[k] || { n: 0, pagos: 0, recebido: 0, aReceber: 0, previsto: 0, conf: 0 };
+        x.n++; if (i.status === "pago" || i.status === "isento") x.pagos++;
+        if (i.status === "pago") x.recebido += i.valor_centavos || 0;
+        if (i.status === "pendente") x.aReceber += i.valor_centavos || 0;
+        if (i.valor_centavos == null) x.conf++; else x.previsto += i.valor_centavos;
+      });
+      return Object.keys(g).map(function (k) { return [k, g[k]]; }).sort(function (a, b) { return b[1].recebido - a[1].recebido || b[1].n - a[1].n; });
+    }
+    function tabela(titulo, linhas) {
+      if (!linhas.length) return "";
+      return "<h2>" + titulo + '</h2><div class="tabela-rel"><table><thead><tr><th></th><th>Inscritos</th><th>Pagos</th><th>Recebido</th><th>A receber</th><th>Previsto</th></tr></thead><tbody>' +
+        linhas.map(function (l) {
+          var x = l[1];
+          return "<tr><td>" + esc(l[0]) + "</td><td>" + x.n + "</td><td>" + x.pagos + "</td><td><b>" + U.reais(x.recebido) + "</b></td><td>" + U.reais(x.aReceber) + "</td><td>" + U.reais(x.previsto) +
+            (x.conf ? ' <small style="color:#f2a20c">+' + x.conf + " a confirmar</small>" : "") + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+    }
+    var tot = agrupar(function () { return "Total"; })[0] || ["Total", { n: 0, pagos: 0, recebido: 0, aReceber: 0, previsto: 0, conf: 0 }];
+    var porEvento = agrupar(function (i) { return porId[i.evento_id].titulo; });
+    var porProf = agrupar(function (i) { return valorDe(i, RP); }), porAcad = agrupar(function (i) { return valorDe(i, RA); });
+    var porOpcao = f.ev ? agrupar(function (i) { return opNome[i.opcao_id]; }) : [];
+    var html = '<div class="cartao rel-filtros"><p class="olho" style="margin:0 0 10px">Relatório de inscritos e receita</p><div class="ev-filtros" style="margin:0">' +
+      '<label class="mini-campo">De<input type="date" id="rl-de" value="' + f.de + '"></label><label class="mini-campo">Até<input type="date" id="rl-ate" value="' + f.ate + '"></label>' +
+      '<select class="sel" id="rl-ev"><option value="">Todos os eventos</option>' + evs.map(function (e) { return '<option value="' + e.id + '"' + (e.id === f.ev ? " selected" : "") + ">" + esc(e.titulo) + "</option>"; }).join("") + "</select>" +
+      '<select class="sel" id="rl-prof"><option value="">Todos os professores</option>' + Object.keys(profs).sort().map(function (p) { return "<option" + (p === f.prof ? " selected" : "") + ">" + esc(p) + "</option>"; }).join("") + "</select>" +
+      '<select class="sel" id="rl-acad"><option value="">Todas as academias</option>' + Object.keys(acads).sort().map(function (p) { return "<option" + (p === f.acad ? " selected" : "") + ">" + esc(p) + "</option>"; }).join("") + "</select>" +
+      '<button class="btn-mini claro" id="rl-csv" type="button">Baixar relatório</button></div>' +
+      (!Object.keys(acads).length ? '<p style="color:var(--cinza-2);font-size:13px;margin:10px 0 0">Para filtrar por academia, inclua a pergunta "Academia: Nome 1, Nome 2" no formulário do evento.</p>' : "") + "</div>" +
+      '<div class="kpis k6" style="margin-top:12px"><div class="kpi"><b>' + evsF.length + '</b><span>Eventos</span></div><div class="kpi"><b>' + tot[1].n + '</b><span>Inscritos</span></div>' +
+      '<div class="kpi"><b>' + tot[1].pagos + '</b><span>Pagos ou isentos</span></div><div class="kpi"><b>' + U.reais(tot[1].recebido) + '</b><span>Receita recebida</span></div>' +
+      '<div class="kpi alerta"><b>' + U.reais(tot[1].aReceber) + '</b><span>A receber</span></div><div class="kpi"><b>' + U.reais(tot[1].previsto) + "</b><span>Previsto</span></div></div>" +
+      '<p style="color:var(--cinza-2);font-size:13px;margin:8px 0 0">Receita recebida = inscrições pagas (Asaas ou baixa manual). Cancelados não entram. Período pela data do evento.</p>' +
+      tabela("Por evento", porEvento) + tabela("Por professor", porProf) + (Object.keys(acads).length ? tabela("Por academia", porAcad) : "") + (f.ev ? tabela("Por opção", porOpcao) : "");
+    function ligar() {
+      function aplicar() {
+        var p = new URLSearchParams(); p.set("ver", "relatorio");
+        [["de", "#rl-de"], ["ate", "#rl-ate"], ["ev", "#rl-ev"], ["prof", "#rl-prof"], ["acad", "#rl-acad"]].forEach(function (k) { if ($(k[1]).value) p.set(k[0], $(k[1]).value); });
+        location.hash = "#/eventos?" + p.toString();
+      }
+      ["#rl-de", "#rl-ate", "#rl-ev", "#rl-prof", "#rl-acad"].forEach(function (s) { $(s).onchange = aplicar; });
+      $("#rl-csv").onclick = function () {
+        var linhas = [["Grupo", "Nome", "Inscritos", "Pagos", "Recebido", "A receber", "Previsto", "Valor a confirmar"]];
+        [["Evento", porEvento], ["Professor", porProf], ["Academia", porAcad], ["Opção", porOpcao]].forEach(function (g) {
+          g[1].forEach(function (l) { var x = l[1]; linhas.push([g[0], l[0], x.n, x.pagos, (x.recebido / 100).toFixed(2).replace(".", ","), (x.aReceber / 100).toFixed(2).replace(".", ","), (x.previsto / 100).toFixed(2).replace(".", ","), x.conf]); });
+        });
+        var csv = linhas.map(function (l) { return l.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(";"); }).join("\r\n");
+        var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+        a.download = "relatorio-eventos.csv"; document.body.appendChild(a); a.click(); a.remove();
+      };
+    }
+    return { html: html, ligar: ligar };
+  }
+
+  setInterval(atualizarSino, 60000);
   iniciar();
 })();

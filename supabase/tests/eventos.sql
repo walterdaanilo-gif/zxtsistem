@@ -48,8 +48,8 @@ begin
   r := r || jsonb_build_object('8_professor_ve_inscritos', n = 3);
   perform baixa_inscricao(i2, 'dinheiro', 'pagou na recepção');
   perform atualizar_inscricao(i2, '{"presente": true}');
-  begin perform atualizar_inscricao(i2, '{"valor_centavos": 1}'); ok := false; exception when others then ok := true; end;
-  r := r || jsonb_build_object('9_professor_nao_altera_valor', ok);
+  insert into eventos (tipo, titulo, inicio, slug) values ('aulao', 'Aulão do professor', now() + interval '3 days', 'aulao-prof-x');
+  r := r || jsonb_build_object('9_professor_cria_evento', exists (select 1 from eventos where slug = 'aulao-prof-x'));
   begin update evento_inscricoes set status = 'isento' where id = i1; get diagnostics n = row_count; ok := n = 0; exception when others then ok := true; end;
   r := r || jsonb_build_object('10_professor_nao_edita_direto', ok);
   execute 'reset role';
@@ -71,6 +71,10 @@ begin
   begin perform inscrever_evento(jsonb_build_object('slug', 'teste-evento-x', 'opcao_id', op90, 'nome', 'Atrasado Silva', 'cpf', '16899535009', 'whatsapp', '84900000000', 'respostas', '{"professor": "A"}'::jsonb)); ok := false;
   exception when others then ok := sqlerrm like '%encerradas%'; end;
   r := r || jsonb_build_object('14_encerrado_recusa', ok);
+  -- importação do Google Forms: entra mesmo com inscrições fechadas e sem WhatsApp
+  x := inscrever_evento(jsonb_build_object('evento_id', ev, 'opcao_id', op90, 'nome', 'Vindo do Forms', 'cpf', '16899535009', 'origem', 'google_forms', 'importacao', true));
+  r := r || jsonb_build_object('15_importacao_forms', (select origem = 'google_forms' and status = 'pendente' from evento_inscricoes where id = (x->>'id')::uuid));
+  begin perform inscrever_evento(jsonb_build_object('evento_id', ev, 'opcao_id', op90, 'nome', 'Burla Silva', 'cpf', '52998224725', 'importacao', true)); exception when others then null; end;
 
   raise exception 'RESULTADO: %', r;
 end $$;
