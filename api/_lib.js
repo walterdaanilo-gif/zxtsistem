@@ -7,7 +7,8 @@
 //   SUPABASE_PUBLISHABLE_KEY chave pública (sb_publishable_...)
 //   SUPABASE_SECRET_KEY      chave secreta do servidor (sb_secret_...)
 
-const env = (k, padrao) => process.env[k] || padrao;
+// lê a variável com ou sem o prefixo ZXT_ (prefixo usado ao conectar o Supabase pela Vercel)
+const env = (k, padrao) => process.env[k] || process.env['ZXT_' + k] || padrao;
 const ASAAS = () => env('ASAAS_BASE_URL', 'https://api-sandbox.asaas.com/v3').replace(/\/$/, '');
 const SB = () => (env('SUPABASE_URL', '') || env('NEXT_PUBLIC_SUPABASE_URL', '') || 'https://gsfvgdhjlqwrysgruyaj.supabase.co').replace(/\/$/, '');
 
