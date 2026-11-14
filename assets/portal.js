@@ -841,7 +841,8 @@
         }
         var denPorPost = {}; dens.forEach(function (d) { if (d.post_id) denPorPost[d.post_id] = (denPorPost[d.post_id] || 0) + 1; });
 
-        var html = "<h1>Comunidade <em>ZxT</em></h1><p class=\"sub\">Treino, conquista, bastidor de aula. Posta aí, família ZxT 🥊</p>" +
+        var topoHtml = "<h1>Comunidade <em>ZxT</em></h1><p class=\"sub\">Avisos da equipe e postagens dos alunos. Posta aí, família ZxT 🥊</p>";
+        var html =
           // composer
           '<form class="cartao post-novo" id="post-novo">' +
           '<textarea id="pn-texto" rows="3" maxlength="2000" placeholder="Como foi o treino hoje?"></textarea>' +
@@ -852,8 +853,7 @@
           '<div style="height:14px"></div>' +
           (staff && dens.length ? '<div class="cartao" style="border-color:#5a3a00;margin-bottom:12px"><b style="color:#f2a20c">⚠ ' + dens.length + " denúncia(s) aguardando análise.</b> Os posts denunciados estão marcados abaixo.</div>" : "");
 
-        if (!posts.length) html += '<div class="vazio-box">Nenhuma postagem ainda. Abre os trabalhos 🔥</div>';
-        html += '<div class="feed">' + posts.map(function (p) {
+        function cartaoPost(p) {
           var a = quem(p.autor_id), curtidas = (p.post_curtidas || []), curti = curtidas.some(function (c) { return c.user_id === S.user.id; });
           var midias = (p.post_midias || []).sort(function (x, y) { return x.ordem - y.ordem; });
           var coms = (p.comentarios || []).sort(function (x, y) { return x.created_at < y.created_at ? -1 : 1; });
@@ -879,10 +879,14 @@
             }).join("") +
             (coms.length > 2 ? '<button class="link-mini ver-todos" data-ver-todos="' + p.id + '">Ver os ' + coms.length + " comentários</button>" : "") +
             '<form class="com-novo" data-comentar="' + p.id + '"><input placeholder="Comentar..." maxlength="500"><button class="btn-mini">Enviar</button></form></div>' +
-            (meu || staff ? "" : "") + "</article>";
-        }).join("") + "</div>" +
+            "</article>";
+        }
+        var avisos = posts.filter(function (p) { return p.fixado; }), feed = posts.filter(function (p) { return !p.fixado; });
+        tela.innerHTML = topoHtml +
+          (avisos.length ? '<h2 class="sec-com">📌 Avisos da ZXT</h2><div class="feed avisos">' + avisos.map(cartaoPost).join("") + "</div>" : "") +
+          '<h2 class="sec-com">Postagens da equipe</h2>' + html +
+          (feed.length ? '<div class="feed">' + feed.map(cartaoPost).join("") + "</div>" : '<div class="vazio-box">Nenhuma postagem ainda. Abre os trabalhos 🔥</div>') +
           (posts.length >= COM.limite ? '<div style="text-align:center;margin-top:14px"><button class="btn-mini claro" id="ver-mais">Ver mais postagens</button></div>' : "");
-        tela.innerHTML = html;
 
         // --- novo post ---
         var arquivos = [];

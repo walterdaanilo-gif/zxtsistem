@@ -246,3 +246,7 @@ body.portal { background: var(--preto); padding-bottom: 84px; }
 .dias-sel .opcao span { padding: 10px 2px; font-size: 14px; }
 .item.inativa { opacity: .55; }
 .form textarea { width: 100%; font: inherit; font-size: 15px; color: #fff; background: #0a0a0a; border: 1px solid #2e2e2e; padding: 12px; }
+.sec-com { margin: 22px 0 10px !important; font-size: 18px !important; letter-spacing: .5px; }
+.feed.avisos .post { border: 1px solid #5a1015; border-left: 4px solid var(--vermelho); background: linear-gradient(110deg, #1a0305, var(--card) 60%); }
+.feed.avisos .post-texto { font-size: 16px; color: #fff; }
+.post-topo .av { color: #fff; font-size: 18px; }
