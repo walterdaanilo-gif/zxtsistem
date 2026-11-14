@@ -12,8 +12,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,600;1,700;1,800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=202611141241">
-  <link rel="stylesheet" href="/assets/portal.css?v=202611141241">
+  <link rel="stylesheet" href="/assets/style.css?v=202611141244">
+  <link rel="stylesheet" href="/assets/portal.css?v=202611141244">
 </head>
 <body class="portal">
   <main class="auth">
@@ -37,6 +37,10 @@
 
       <!-- CADASTRO -->
       <form class="form" id="f-cadastro" novalidate hidden>
+        <div class="tipo-cad" role="radiogroup" aria-label="Tipo de cadastro">
+          <label class="tipo-op"><input type="radio" name="tipo" value="aluno" checked><span><b>Sou aluno</b><small>Quero treinar na ZXT</small></span></label>
+          <label class="tipo-op"><input type="radio" name="tipo" value="professor"><span><b>Sou professor</b><small>Dou aula na ZXT</small></span></label>
+        </div>
         <div class="grupo">
           <p>Seus dados</p>
           <div class="campo"><label for="c-nome">Nome completo</label><input id="c-nome" autocomplete="name" required></div>
@@ -51,9 +55,18 @@
           <div class="campo"><label for="c-senha">Crie uma senha <small>(mínimo 8 caracteres)</small></label><input id="c-senha" type="password" autocomplete="new-password" minlength="8" required></div>
         </div>
 
-        <div class="grupo">
+        <div class="grupo" id="g-plano">
           <p>Plano e turmas</p>
           <div id="c-plano"><p class="carregando" style="padding:0">Carregando planos...</p></div>
+        </div>
+
+        <div class="grupo" id="g-prof" hidden>
+          <p>Turmas em que você dá aula</p>
+          <div id="c-prof-turmas"></div>
+          <p style="margin-top:6px">Sua graduação</p>
+          <div id="c-prof-grad"></div>
+          <div class="campo"><label for="c-exp">Experiência <small>(anos de prática, competições, cursos)</small></label><textarea id="c-exp" rows="3"></textarea></div>
+          <p class="pp-aviso" style="color:var(--cinza);letter-spacing:0;text-transform:none;font-family:var(--corpo);font-weight:400;font-size:13px">A equipe ZXT confere seus dados, confirma as turmas e libera seu acesso de professor.</p>
         </div>
 
         <div class="grupo">
@@ -87,8 +100,8 @@
     </div>
   </main>
 
-  <script src="/assets/vendor/supabase.min.js?v=202611141241"></script>
-  <script src="/assets/portal-base.js?v=202611141241"></script>
-  <script src="/assets/entrar.js?v=202611141241"></script>
+  <script src="/assets/vendor/supabase.min.js?v=202611141244"></script>
+  <script src="/assets/portal-base.js?v=202611141244"></script>
+  <script src="/assets/entrar.js?v=202611141244"></script>
 </body>
 </html>

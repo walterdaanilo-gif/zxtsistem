@@ -16,14 +16,16 @@
     painel: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     aprovar: '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
     funil: '<path d="M3 4h18l-7 8v7l-4 2v-9z"/>',
-    comunidade: '<path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>'
+    comunidade: '<path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>',
+    professor: '<circle cx="12" cy="7" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/><path d="M9 14l3 3 3-3"/>',
+    config: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'
   };
   function ic(n) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + I[n] + "</svg>"; }
 
   var MENUS = {
     aluno: [["comunidade", "Comunidade", "comunidade"], ["inicio", "Início", "casa"], ["agenda", "Agenda", "agenda"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["graduacao", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
     professor: [["chamada", "Chamada", "chamada"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["perfil", "Perfil", "perfil"]],
-    admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["perfil", "Meu perfil", "perfil"]]
+    admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["professores", "Professores", "professor"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["config", "Configurações", "config"], ["perfil", "Meu perfil", "perfil"]]
   };
   var NOME_PAPEL = { aluno: "Aluno", professor: "Professor", admin: "Administração" };
 
@@ -118,7 +120,9 @@
       '<p class="sub">' + (recusado
         ? "Motivo: " + esc(p.motivo_recusa || "não informado") + ". Fale com a equipe para resolver."
         : p.status === "pendente"
-          ? "Recebemos seu cadastro, " + esc(primeiroNome(p.nome)) + ". A equipe ZXT confere seus dados e libera seu acesso. Assim que aprovar, é só entrar de novo."
+          ? (p.tipo_cadastro === "professor"
+            ? "Recebemos seu cadastro de professor, " + esc(primeiroNome(p.nome)) + ". A equipe ZXT confere sua graduação e confirma as turmas. Assim que aprovar, seu acesso de professor é liberado."
+            : "Recebemos seu cadastro, " + esc(primeiroNome(p.nome)) + ". A equipe ZXT confere seus dados e libera seu acesso. Assim que aprovar, é só entrar de novo.")
           : "Seu acesso está " + esc(p.status) + ". Fale com a recepção para reativar.") + "</p>" +
       '<a class="btn btn-vermelho" target="_blank" rel="noopener" href="https://ig.me/m/zxtoficial">Falar com a ZXT</a>' +
       '<button class="link" id="recarregar">Já fui aprovado? Atualizar</button></div>';
@@ -139,9 +143,12 @@
     $("#nav").innerHTML = MENUS[S.modo].map(function (m) {
       return '<a href="#/' + m[0] + '" data-r="' + m[0] + '">' + ic(m[2]) + "<span>" + m[1] + '</span><span class="bolha" hidden></span></a>';
     }).join("");
-    if (S.modo === "admin") sb.from("profiles").select("id", { count: "exact", head: true }).eq("status", "pendente").then(function (r) {
-      var b = $('#nav [data-r="aprovacoes"] .bolha');
-      if (b && r.count) { b.hidden = false; b.textContent = r.count; }
+    if (S.modo === "admin") sb.from("profiles").select("tipo_cadastro").eq("status", "pendente").then(function (r) {
+      var al = 0, pr = 0; (r.data || []).forEach(function (x) { if (x.tipo_cadastro === "professor") pr++; else al++; });
+      [["aprovacoes", al], ["professores", pr]].forEach(function (c) {
+        var b = $('#nav [data-r="' + c[0] + '"] .bolha');
+        if (b) { b.hidden = !c[1]; b.textContent = c[1]; }
+      });
     });
   }
 
@@ -501,8 +508,18 @@
 
   VIEWS.alunos = function () {
     var admin = S.modo === "admin";
-    return sb.from("profiles").select("id,nome,email,whatsapp,status,data_nascimento,saude_obs,created_at,aprovado_em,modalidades_interesse").order("nome").then(chk).then(function (ps) {
-      tela.innerHTML = "<h1><em>Alunos</em></h1><p class=\"sub\">" + ps.length + " cadastros.</p>" +
+    return Promise.all([
+      sb.from("profiles").select("id,nome,email,whatsapp,status,data_nascimento,saude_obs,created_at,aprovado_em,modalidades_interesse,tipo_cadastro").order("nome").then(chk),
+      sb.from("user_roles").select("user_id,papel").then(chk)
+    ]).then(function (rr) {
+      var papeis = {}; rr[1].forEach(function (x) { (papeis[x.user_id] = papeis[x.user_id] || []).push(x.papel); });
+      // aba Alunos: só quem é aluno (professor que também treina aparece; equipe pura não)
+      var ps = rr[0].filter(function (p) {
+        var pp = papeis[p.id] || [];
+        if (p.status === "pendente") return p.tipo_cadastro !== "professor";
+        return pp.indexOf("aluno") >= 0;
+      });
+      tela.innerHTML = "<h1><em>Alunos</em></h1><p class=\"sub\">" + ps.length + " aluno(s). Professores ficam na aba Professores.</p>" +
         '<div class="busca"><input id="a-busca" placeholder="Buscar por nome"><select id="a-status"><option value="">Todos os status</option>' +
         ["ativo", "pendente", "trancado", "inativo", "recusado"].map(function (s) { return '<option value="' + s + '"' + (s === "ativo" && !admin ? " selected" : "") + ">" + s + "</option>"; }).join("") +
         '</select><select id="a-aniv"><option value="">Todos</option><option value="1">Aniversariantes do mês</option></select>' + (admin ? '<button class="btn-mini claro" id="a-csv">Exportar CSV</button>' : "") + "</div><div class=\"lista\" id=\"a-lista\"></div>";
@@ -602,7 +619,7 @@
 
   VIEWS.aprovacoes = function () {
     return Promise.all([
-      sb.from("profiles").select("*").eq("status", "pendente").order("created_at").then(chk),
+      sb.from("profiles").select("*").eq("status", "pendente").neq("tipo_cadastro", "professor").order("created_at").then(chk),
       carregarDadosPlano()
     ]).then(function (r) {
       var ps = r[0], dp = r[1], planos = dp.planos, turmas = dp.turmas;
@@ -980,6 +997,217 @@
           modal("Postagem", '<p style="color:var(--cinza)">O que deseja fazer com esta postagem?</p>', bots);
         }
       });
+    });
+  };
+
+  // =================================================================== PROFESSORES (admin)
+  var DIAS_C = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  function horarioTurma(t) {
+    return (t.dias_semana || []).map(function (d) { return DIAS_C[d]; }).join(" e ") + " às " + String(t.hora_inicio || "").slice(0, 5).replace(":00", "h").replace(":", "h");
+  }
+  function modalTurmasProfessor(titulo, turmas, marcadas, profId, extraHtml, aoSalvar) {
+    var nomeProf = {};
+    return sb.rpc("professores_das_turmas").then(function (r) {
+      (r.data || []).forEach(function (x) { nomeProf[x.turma_id] = x; });
+      modal(titulo, '<p style="color:var(--cinza);font-size:14px;margin:0 0 10px">Marque as turmas em que essa pessoa é o professor responsável.</p>' +
+        turmas.filter(function (t) { return t.ativa && !t.coletiva; }).map(function (t) {
+          var atual = nomeProf[t.id];
+          return '<label class="check pp-turma"><input type="checkbox" name="mt" value="' + t.id + '"' + (marcadas.indexOf(t.id) >= 0 ? " checked" : "") + "> <span><b>" + esc(t.nome) + "</b> · " + horarioTurma(t) +
+            (atual && atual.professor_id !== profId ? ' <span style="color:#f2a20c">(hoje: ' + esc(atual.professor_nome || "outro professor") + ")</span>" : "") + "</span></label>";
+        }).join("") + (extraHtml || ""),
+        [["Cancelar", null, "claro"], ["Salvar", function (f) {
+          return aoSalvar(U.$$('input[name="mt"]:checked', f).map(function (i) { return i.value; }), f);
+        }, "verde"]]);
+    });
+  }
+
+  VIEWS.professores = function () {
+    return Promise.all([
+      sb.from("profiles").select("*").order("nome").then(chk),
+      sb.from("user_roles").select("user_id,papel").eq("papel", "professor").then(chk),
+      sb.from("turmas").select("id,nome,modalidade_id,professor_id,ativa,coletiva,dias_semana,hora_inicio").order("nome").then(chk),
+      sb.from("graduacao_niveis").select("id,nome,cor,cor2,modalidade_id,ordem").then(chk),
+      sb.from("graduacoes_aluno").select("aluno_id,modalidade_id,nivel_id,grau,data").order("data", { ascending: false }).then(chk),
+      sb.from("modalidades").select("id,nome").then(chk)
+    ]).then(function (r) {
+      var perfis = r[0], ehProf = {}, turmas = r[2], niveis = {}, mods = {};
+      r[1].forEach(function (x) { ehProf[x.user_id] = true; });
+      r[3].forEach(function (n) { niveis[n.id] = n; });
+      r[5].forEach(function (m) { mods[m.id] = m.nome; });
+      var nomeTurma = {}; turmas.forEach(function (t) { nomeTurma[t.id] = t.nome; });
+      var pendentes = perfis.filter(function (p) { return p.status === "pendente" && p.tipo_cadastro === "professor"; });
+      var ativos = perfis.filter(function (p) { return ehProf[p.id]; });
+      function gradAtual(id) {
+        var vistos = {}, out = [];
+        r[4].filter(function (g) { return g.aluno_id === id; }).forEach(function (g) {
+          if (vistos[g.modalidade_id]) return; vistos[g.modalidade_id] = 1;
+          var n = niveis[g.nivel_id] || {}; out.push((mods[g.modalidade_id] || "") + ": " + esc(n.nome || "?") + (g.grau ? " " + g.grau + "º grau" : "") + " " + U.barraGrad(n, 36));
+        });
+        return out;
+      }
+      var linkConvite = location.origin + "/entrar?modo=cadastro&tipo=professor";
+      var html = "<h1><em>Professores</em></h1><p class=\"sub\">Solicitações de professor, turmas de cada um e graduação.</p>" +
+        '<div class="cartao" style="margin-bottom:16px"><p style="margin:0 0 10px;color:var(--cinza)">Link para um professor se cadastrar:</p>' +
+        '<div class="busca" style="margin:0"><input readonly value="' + esc(linkConvite) + '"><button class="btn-mini" id="cp-convite">Copiar link</button></div></div>' +
+        "<h2>Solicitações" + (pendentes.length ? ' <span class="tag atencao">' + pendentes.length + "</span>" : "") + "</h2>" +
+        (pendentes.length ? '<div class="lista">' + pendentes.map(function (p) {
+          var gd = (p.graduacao_declarada || []).map(function (g) { var n = niveis[g.nivel_id] || {}; return (mods[g.modalidade_id] || "") + ": " + esc(n.nome || "?") + (g.grau ? " " + g.grau + "º grau" : "") + " " + U.barraGrad(n, 36); });
+          var idade = U.idade(p.data_nascimento);
+          return '<div class="cartao"><h3 style="margin:0;font-family:var(--display);font-style:italic;text-transform:uppercase;font-size:22px">' + esc(p.nome || p.email) + "</h3>" +
+            '<p style="margin:6px 0;color:var(--cinza);font-size:14px">' + esc(p.email || "") + " · " + esc(p.whatsapp || "") + (idade !== null ? " · " + idade + " anos" : "") + " · pediu em " + U.data(p.created_at) + "</p>" +
+            '<p style="margin:0 0 6px;font-size:14px">Turmas pedidas: <b>' + esc((p.turmas_professor || []).map(function (t) { return nomeTurma[t] || "turma removida"; }).join(" + ") || "nenhuma") + "</b></p>" +
+            '<p style="margin:0 0 6px;font-size:14px">Graduação declarada: ' + (gd.length ? gd.join(" · ") : "<b>não informada</b>") + "</p>" +
+            (p.experiencia ? '<p style="margin:0 0 10px;font-size:14px;color:var(--cinza)">Experiência: ' + esc(p.experiencia) + "</p>" : "") +
+            '<div class="busca" style="margin:0"><button class="btn-mini verde" data-aprovar-prof="' + p.id + '">Aprovar professor</button><button class="btn-mini claro" data-recusar-prof="' + p.id + '">Recusar</button>' +
+            (p.whatsapp ? '<a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(p.whatsapp) + '">WhatsApp</a>' : "") + "</div></div>";
+        }).join("") + "</div>" : '<div class="vazio-box">Nenhuma solicitação de professor.</div>') +
+        "<h2>Equipe de professores</h2>" +
+        (ativos.length ? '<div class="lista">' + ativos.map(function (p) {
+          var ts = turmas.filter(function (t) { return t.professor_id === p.id; });
+          var g = gradAtual(p.id);
+          return '<div class="item"><div><h3>' + esc(p.nome || p.email) + "</h3><p>" + (ts.length ? esc(ts.map(function (t) { return t.nome; }).join(" + ")) : "Sem turma definida") + "</p>" +
+            (g.length ? '<p style="margin-top:4px">' + g.join(" · ") + "</p>" : "") + "</div>" +
+            '<div class="acoes"><button class="btn-mini" data-turmas-prof="' + p.id + '">Turmas</button><button class="btn-mini claro" data-ficha="' + p.id + '">Ficha</button>' +
+            (p.whatsapp ? '<a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(p.whatsapp) + '">WhatsApp</a>' : "") + "</div></div>";
+        }).join("") + "</div>" : '<div class="vazio-box">Nenhum professor ainda. Mande o link acima para a equipe se cadastrar.</div>');
+      tela.innerHTML = html;
+      $("#cp-convite").onclick = function () { navigator.clipboard.writeText(linkConvite).then(function () { U.toast("Link copiado"); }); };
+      tela.onclick = function (e) {
+        var b;
+        if ((b = e.target.closest("[data-ficha]"))) return ficha(b.getAttribute("data-ficha"));
+        if ((b = e.target.closest("[data-aprovar-prof]"))) {
+          var p = perfis.filter(function (x) { return x.id === b.getAttribute("data-aprovar-prof"); })[0];
+          return modalTurmasProfessor("Aprovar professor · " + (p.nome || ""), turmas, p.turmas_professor || [], p.id,
+            '<label class="check" style="margin-top:12px"><input type="checkbox" id="ap-grad" checked> Registrar a graduação declarada no histórico dele</label>',
+            function (sel, f) {
+              return sb.rpc("aprovar_professor", { p_prof: p.id, p_turmas: sel, p_registrar_graduacao: f.querySelector("#ap-grad").checked }).then(function (x) {
+                if (x.error) { U.erro(x.error); return false; } U.toast("Professor aprovado 🥊"); montarMenu(); rotear();
+              });
+            });
+        }
+        if ((b = e.target.closest("[data-recusar-prof]"))) {
+          var idr = b.getAttribute("data-recusar-prof");
+          return modal("Recusar professor", '<div class="campo"><label for="rp-m">Motivo (a pessoa vê)</label><textarea id="rp-m" rows="3"></textarea></div>',
+            [["Cancelar", null, "claro"], ["Recusar", function (f) {
+              var m = f.querySelector("#rp-m").value.trim(); if (!m) { U.toast("Escreva o motivo.", "erro"); return false; }
+              return sb.rpc("recusar_aluno", { p_aluno: idr, p_motivo: m }).then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Solicitação recusada"); montarMenu(); rotear(); });
+            }]]);
+        }
+        if ((b = e.target.closest("[data-turmas-prof]"))) {
+          var pid = b.getAttribute("data-turmas-prof"), pp = perfis.filter(function (x) { return x.id === pid; })[0];
+          return modalTurmasProfessor("Turmas · " + (pp.nome || ""), turmas, turmas.filter(function (t) { return t.professor_id === pid; }).map(function (t) { return t.id; }), pid, "",
+            function (sel) {
+              return sb.rpc("definir_turmas_professor", { p_prof: pid, p_turmas: sel }).then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Turmas atualizadas"); rotear(); });
+            });
+        }
+      };
+    });
+  };
+
+  // =================================================================== CONFIGURAÇÕES (admin)
+  VIEWS.config = function () {
+    return Promise.all([
+      sb.from("academia_config").select("*").single().then(chk),
+      sb.from("turmas").select("*").order("ativa", { ascending: false }).order("nome").then(chk),
+      sb.from("modalidades").select("*").order("ordem").then(chk),
+      sb.from("user_roles").select("user_id").eq("papel", "professor").then(chk),
+      sb.from("profiles").select("id,nome").then(chk)
+    ]).then(function (r) {
+      var c = r[0], turmas = r[1], mods = r[2], profIds = r[3].map(function (x) { return x.user_id; });
+      var nomes = {}; r[4].forEach(function (p) { nomes[p.id] = p.nome; });
+      var profs = profIds.map(function (id) { return { id: id, nome: nomes[id] || "Professor" }; });
+      var nomeMod = {}; mods.forEach(function (m) { nomeMod[m.id] = m.nome; });
+      function campo(id, rot, val, tipo, extra) { return '<div class="campo"><label for="' + id + '">' + rot + '</label><input id="' + id + '" type="' + (tipo || "text") + '" value="' + esc(val == null ? "" : val) + '"' + (extra || "") + "></div>"; }
+      tela.innerHTML = "<h1><em>Configurações</em></h1><p class=\"sub\">Dados da academia, regras do portal, turmas, modalidades e textos legais.</p>" +
+        // academia
+        '<h2>Academia</h2><form class="form" id="cf-acad">' + campo("cf-nome", "Nome", c.nome) + campo("cf-slogan", "Slogan", c.slogan) + campo("cf-end", "Endereço", c.endereco) +
+        '<div class="linha2">' + campo("cf-whats", "WhatsApp da academia", c.whatsapp, "tel", ' placeholder="5584999999999"') + campo("cf-insta", "Instagram (sem @)", c.instagram) + "</div>" +
+        '<button class="btn btn-vermelho" type="submit">Salvar dados</button></form>' +
+        // regras
+        '<h2>Regras do portal</h2><form class="form" id="cf-regras"><div class="linha2">' +
+        campo("cf-cancel", "Cancelar reserva até (horas antes)", c.horas_cancelamento_reserva, "number", ' min="0" max="48"') +
+        campo("cf-janela", "Check-in abre (minutos antes da aula)", c.janela_checkin_min, "number", ' min="0" max="120"') + "</div>" +
+        campo("cf-bloq", "Bloquear check-in após quantos dias de atraso (vazio = não bloqueia)", c.dias_bloqueio_atraso, "number", ' min="1" max="90"') +
+        '<button class="btn btn-vermelho" type="submit">Salvar regras</button></form>' +
+        // turmas
+        '<h2>Turmas</h2><div class="lista">' + turmas.map(function (t) {
+          return '<div class="item' + (t.ativa ? "" : " inativa") + '"><div><h3>' + esc(t.nome) + "</h3><p>" + horarioTurma(t) + " · " + t.duracao_min + " min · até " + t.capacidade + " alunos · " +
+            (t.coletiva ? "coletiva (toda a equipe)" : esc(nomeMod[t.modalidade_id] || "")) + " · " + (t.professor_id ? "Prof. " + esc(nomes[t.professor_id] || "") : "sem professor") + "</p></div>" +
+            '<div class="acoes">' + tagStatus(t.ativa ? "ativo" : "inativo") + ' <button class="btn-mini claro" data-editar-turma="' + t.id + '">Editar</button></div></div>';
+        }).join("") + '</div><div class="busca" style="margin-top:10px"><button class="btn-mini" id="nova-turma">Nova turma</button></div>' +
+        // modalidades
+        '<h2>Modalidades</h2><div class="lista">' + mods.map(function (m) {
+          return '<div class="item"><div><h3>' + esc(m.nome) + "</h3><p>" + ({ prajied: "Gradua por prajied", faixa: "Gradua por faixa e grau", nivel: "Gradua por nível" })[m.sistema] + "</p></div>" +
+            '<div class="acoes"><label class="check" style="font-size:14px"><input type="checkbox" data-mod-ativa="' + m.id + '"' + (m.ativa ? " checked" : "") + "> Ativa</label></div></div>";
+        }).join("") + "</div>" +
+        // textos
+        '<h2>Textos legais</h2><form class="form" id="cf-textos">' +
+        '<div class="campo"><label for="cf-termo">Termo de responsabilidade</label><textarea id="cf-termo" rows="8">' + esc(c.termo_responsabilidade) + "</textarea></div>" +
+        '<div class="campo"><label for="cf-priv">Política de privacidade (LGPD)</label><textarea id="cf-priv" rows="8">' + esc(c.politica_privacidade) + "</textarea></div>" +
+        '<p class="dica" style="margin:0">Versão atual: ' + c.versao_termos + ". Ao salvar, a versão sobe e os próximos cadastros aceitam o texto novo.</p>" +
+        '<button class="btn btn-vermelho" type="submit">Salvar textos</button></form>';
+
+      function salvarConfig(dados, msg) {
+        return sb.from("academia_config").update(dados).eq("id", true).then(function (x) { if (x.error) return U.erro(x.error); U.toast(msg); rotear(); });
+      }
+      $("#cf-acad").onsubmit = function (e) {
+        e.preventDefault();
+        salvarConfig({ nome: $("#cf-nome").value.trim(), slogan: $("#cf-slogan").value.trim(), endereco: $("#cf-end").value.trim(),
+          whatsapp: U.soDigitos($("#cf-whats").value) || null, instagram: $("#cf-insta").value.replace("@", "").trim() || null }, "Dados da academia salvos");
+      };
+      $("#cf-regras").onsubmit = function (e) {
+        e.preventDefault();
+        var bl = parseInt($("#cf-bloq").value, 10);
+        salvarConfig({ horas_cancelamento_reserva: parseInt($("#cf-cancel").value, 10) || 0, janela_checkin_min: parseInt($("#cf-janela").value, 10) || 0,
+          dias_bloqueio_atraso: bl > 0 ? bl : null }, "Regras salvas");
+      };
+      $("#cf-textos").onsubmit = function (e) {
+        e.preventDefault();
+        salvarConfig({ termo_responsabilidade: $("#cf-termo").value, politica_privacidade: $("#cf-priv").value, versao_termos: c.versao_termos + 1 }, "Textos salvos (versão " + (c.versao_termos + 1) + ")");
+      };
+      tela.onchange = function (e) {
+        var m = e.target.closest("[data-mod-ativa]"); if (!m) return;
+        sb.from("modalidades").update({ ativa: m.checked }).eq("id", m.getAttribute("data-mod-ativa")).then(function (x) { if (x.error) return U.erro(x.error); U.toast(m.checked ? "Modalidade ativada" : "Modalidade desativada"); });
+      };
+      function editorTurma(t) {
+        t = t || { nome: "", modalidade_id: mods[0] && mods[0].id, dias_semana: [], hora_inicio: "19:00", duracao_min: 60, capacidade: 30, nivel: "todos", professor_id: null, ativa: true, coletiva: false, sparring: false };
+        modal(t.id ? "Editar turma" : "Nova turma",
+          '<div class="campo"><label for="tu-n">Nome</label><input id="tu-n" value="' + esc(t.nome) + '" placeholder="Ex.: Muay Thai · Turma 4"></div>' +
+          '<div class="linha2" style="margin-top:12px"><div class="campo"><label for="tu-m">Modalidade</label><select class="sel" id="tu-m">' +
+            mods.map(function (m) { return '<option value="' + m.id + '"' + (m.id === t.modalidade_id ? " selected" : "") + ">" + esc(m.nome) + "</option>"; }).join("") + "</select></div>" +
+          '<div class="campo"><label for="tu-p">Professor</label><select class="sel" id="tu-p"><option value="">Sem professor</option>' +
+            profs.map(function (p) { return '<option value="' + p.id + '"' + (p.id === t.professor_id ? " selected" : "") + ">" + esc(p.nome) + "</option>"; }).join("") + "</select></div></div>" +
+          '<div class="campo" style="margin-top:12px"><label>Dias da semana</label><div class="dias-sel">' + [1, 2, 3, 4, 5, 6, 0].map(function (d) {
+            return '<label class="opcao"><input type="checkbox" name="tu-d" value="' + d + '"' + ((t.dias_semana || []).indexOf(d) >= 0 ? " checked" : "") + "><span>" + DIAS_C[d] + "</span></label>"; }).join("") + "</div></div>" +
+          '<div class="linha2" style="margin-top:12px"><div class="campo"><label for="tu-h">Horário</label><input id="tu-h" type="time" value="' + String(t.hora_inicio).slice(0, 5) + '"></div>' +
+          '<div class="campo"><label for="tu-du">Duração (min)</label><input id="tu-du" type="number" min="15" max="240" value="' + t.duracao_min + '"></div></div>' +
+          '<div class="linha2" style="margin-top:12px"><div class="campo"><label for="tu-c">Capacidade</label><input id="tu-c" type="number" min="1" max="200" value="' + t.capacidade + '"></div>' +
+          '<div class="campo"><label for="tu-nv">Nível</label><select class="sel" id="tu-nv">' + [["todos", "Todos os níveis"], ["iniciante", "Iniciante"], ["intermediario", "Intermediário"], ["avancado", "Avançado"], ["kids", "Kids"], ["competicao", "Competição"]].map(function (o) {
+            return '<option value="' + o[0] + '"' + (o[0] === t.nivel ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></div></div>" +
+          '<label class="check" style="margin-top:12px"><input type="checkbox" id="tu-col"' + (t.coletiva ? " checked" : "") + "> Aula coletiva aberta a todos os planos (ex.: sparring de sexta)</label>" +
+          '<label class="check" style="margin-top:6px"><input type="checkbox" id="tu-at"' + (t.ativa ? " checked" : "") + "> Turma ativa</label>" +
+          '<p style="color:var(--cinza);font-size:13px;margin:10px 0 0">Ao salvar, a agenda dos próximos 14 dias é refeita. Aulas que já têm reserva ficam como estão.</p>',
+          [["Cancelar", null, "claro"], ["Salvar turma", function (f) {
+            var dias = U.$$('input[name="tu-d"]:checked', f).map(function (i) { return parseInt(i.value, 10); });
+            var nome = f.querySelector("#tu-n").value.trim();
+            if (!nome || !dias.length) { U.toast("Preencha o nome e pelo menos um dia.", "erro"); return false; }
+            var col = f.querySelector("#tu-col").checked;
+            var dados = { nome: nome, modalidade_id: col ? null : f.querySelector("#tu-m").value, dias_semana: dias, hora_inicio: f.querySelector("#tu-h").value,
+              duracao_min: parseInt(f.querySelector("#tu-du").value, 10) || 60, capacidade: parseInt(f.querySelector("#tu-c").value, 10) || 30,
+              nivel: f.querySelector("#tu-nv").value, professor_id: f.querySelector("#tu-p").value || null, ativa: f.querySelector("#tu-at").checked,
+              coletiva: col, sparring: col };
+            var q = t.id ? sb.from("turmas").update(dados).eq("id", t.id).select().single() : sb.from("turmas").insert(dados).select().single();
+            return q.then(function (x) {
+              if (x.error) { U.erro(x.error); return false; }
+              return sb.rpc("atualizar_aulas_turma", { p_turma: x.data.id }).then(function () { U.toast("Turma salva e agenda atualizada"); rotear(); });
+            });
+          }, "verde"]]);
+      }
+      tela.onclick = function (e) {
+        var b = e.target.closest("[data-editar-turma]");
+        if (b) return editorTurma(turmas.filter(function (t) { return t.id === b.getAttribute("data-editar-turma"); })[0]);
+        if (e.target.id === "nova-turma") editorTurma();
+      };
     });
   };
 
