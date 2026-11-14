@@ -24,7 +24,7 @@
 
   var MENUS = {
     aluno: [["comunidade", "Comunidade", "comunidade"], ["inicio", "Início", "casa"], ["agenda", "Agenda", "agenda"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["graduacao", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
-    professor: [["chamada", "Chamada", "chamada"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["finturmas", "Financeiro", "dinheiro"], ["graduacoes", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
+    professor: [["chamada", "Chamada", "chamada"], ["aprovacoes", "Aprovações", "aprovar"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["finturmas", "Financeiro", "dinheiro"], ["graduacoes", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
     admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["professores", "Professores", "professor"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["config", "Configurações", "config"], ["perfil", "Meu perfil", "perfil"]]
   };
   var NOME_PAPEL = { aluno: "Aluno", professor: "Professor", admin: "Administração" };
@@ -219,6 +219,10 @@
     $("#nav").innerHTML = MENUS[S.modo].map(function (m) {
       return '<a href="#/' + m[0] + '" data-r="' + m[0] + '">' + ic(m[2]) + "<span>" + m[1] + '</span><span class="bolha" hidden></span></a>';
     }).join("");
+    if (S.modo === "professor") pendentesDoProfessor().then(function (l) {
+      var b = $('#nav [data-r="aprovacoes"] .bolha');
+      if (b) { b.hidden = !l.length; b.textContent = l.length; }
+    });
     if (S.modo === "admin") sb.from("profiles").select("tipo_cadastro").eq("status", "pendente").then(function (r) {
       var al = 0, pr = 0; (r.data || []).forEach(function (x) { if (x.tipo_cadastro === "professor") pr++; else al++; });
       [["aprovacoes", al], ["professores", pr]].forEach(function (c) {
@@ -793,7 +797,7 @@
 
   VIEWS.aprovacoes = function () {
     return Promise.all([
-      sb.from("profiles").select("*").eq("status", "pendente").neq("tipo_cadastro", "professor").order("created_at").then(chk),
+      S.modo === "professor" ? pendentesDoProfessor() : sb.from("profiles").select("*").eq("status", "pendente").neq("tipo_cadastro", "professor").order("created_at").then(chk),
       carregarDadosPlano()
     ]).then(function (r) {
       var ps = r[0], dp = r[1], planos = dp.planos, turmas = dp.turmas;
@@ -1201,6 +1205,7 @@
   // =================================================================== PROFESSORES (admin)
   var DIAS_C = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   function horarioTurma(t) {
+    if (!(t.dias_semana || []).length) return "Treina em qualquer turma e horário";
     return (t.dias_semana || []).map(function (d) { return DIAS_C[d]; }).join(" e ") + " às " + String(t.hora_inicio || "").slice(0, 5).replace(":00", "h").replace(":", "h");
   }
   function modalTurmasProfessor(titulo, turmas, marcadas, profId, extraHtml, aoSalvar) {
@@ -1432,16 +1437,35 @@
     }).catch(function (e) { U.erro(e); });
   }
 
+  // cadastros pendentes que este professor pode aprovar: escolheram turma dele ou o plano livre (Plus)
+  function pendentesDoProfessor() {
+    return Promise.all([
+      sb.from("profiles").select("*").eq("status", "pendente").eq("tipo_cadastro", "aluno").order("created_at").then(chk),
+      sb.from("turmas").select("id").eq("professor_id", S.user.id).then(chk),
+      sb.from("planos").select("id").eq("turmas_livres", true).then(chk)
+    ]).then(function (r) {
+      var minhas = r[1].map(function (t) { return t.id; }), livres = r[2].map(function (p) { return p.id; });
+      return r[0].filter(function (p) {
+        return livres.indexOf(p.plano_escolhido_id) >= 0 || (p.turmas_escolhidas || []).some(function (t) { return minhas.indexOf(t) >= 0; });
+      });
+    });
+  }
+
   // ------------------------------------------------ professor: financeiro das minhas turmas (só leitura)
   VIEWS.finturmas = function () {
     var soPend = /pend=1/.test(location.hash);
     return sb.from("turmas").select("id,nome,dias_semana,hora_inicio").eq("professor_id", S.user.id).eq("ativa", true).order("nome").then(chk).then(function (turmas) {
-      if (!turmas.length) {
-        tela.innerHTML = '<h1>Financeiro das <em>turmas</em></h1><div class="vazio-box">Você ainda não é o professor responsável por nenhuma turma. Peça à administração para definir suas turmas.</div>';
-        return;
-      }
+      var semTurmaPropria = !turmas.length;
       var ids = turmas.map(function (t) { return t.id; });
-      return sb.from("matriculas").select("turma_id, aluno_id, profiles(nome,whatsapp,status)").in("turma_id", ids).then(chk).then(function (mats) {
+      if (!ids.length) ids = ["00000000-0000-0000-0000-000000000000"];
+      return Promise.all([
+        sb.from("matriculas").select("turma_id, aluno_id, profiles(nome,whatsapp,status)").in("turma_id", ids).then(chk),
+        sb.from("assinaturas").select("aluno_id, planos!inner(turmas_livres), profiles!assinaturas_aluno_id_fkey(nome,whatsapp,status)").eq("ativa", true).eq("planos.turmas_livres", true).then(chk)
+      ]).then(function (rr) {
+        var mats = rr[0];
+        // alunos do Plus entram como uma "turma" à parte, visível a todos os professores
+        rr[1].forEach(function (a) { mats.push({ turma_id: "plus", aluno_id: a.aluno_id, profiles: a.profiles }); });
+        if (rr[1].length) turmas = turmas.concat([{ id: "plus", nome: "Plano Plus · todas as turmas", dias_semana: [], hora_inicio: "" }]);
         var alunos = {}; mats.forEach(function (m) { alunos[m.aluno_id] = 1; });
         var aIds = Object.keys(alunos);
         return (aIds.length ? sb.from("cobrancas").select("aluno_id,descricao,vencimento,valor_final_centavos,status,pago_em").in("aluno_id", aIds).order("vencimento", { ascending: false }).then(chk) : Promise.resolve([]))
@@ -1454,7 +1478,9 @@
               if (ab.length) return { st: "em_aberto", c: ab[ab.length - 1], soma: ab.reduce(function (s, c) { return s + c.valor_final_centavos; }, 0), n: ab.length };
               return { st: l.length ? "pago" : "sem", c: l[0], soma: 0, n: 0 };
             }
-            var html = '<h1>Financeiro das <em>turmas</em></h1><p class="sub">Situação das mensalidades dos alunos das suas turmas. A baixa de pagamento em dinheiro é feita pela administração.</p>' +
+            if (!turmas.length) { tela.innerHTML = '<h1>Financeiro das <em>turmas</em></h1><div class="vazio-box">Você ainda não é o professor responsável por nenhuma turma e não há alunos do Plano Plus. Peça à administração para definir suas turmas.</div>'; return; }
+            var html = '<h1>Financeiro das <em>turmas</em></h1><p class="sub">Situação das mensalidades dos alunos das suas turmas e dos alunos do Plano Plus. A baixa de pagamento em dinheiro é feita pela administração.</p>' +
+              (semTurmaPropria ? '<p class="dica" style="margin:-12px 0 16px">Você ainda não tem turma própria definida: aparecem só os alunos do Plano Plus.</p>' : "") +
               '<div class="filtros"><button class="filtro" data-pend="0" aria-pressed="' + !soPend + '">Todos os alunos</button><button class="filtro" data-pend="1" aria-pressed="' + soPend + '">Só pendentes</button></div>';
             turmas.forEach(function (t) {
               var ms = mats.filter(function (m) { return m.turma_id === t.id && m.profiles && m.profiles.status === "ativo"; });
