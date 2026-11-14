@@ -799,7 +799,6 @@
     var pMods = COM.mods ? Promise.resolve(COM.mods) : sb.from("modalidades").select("id,nome").eq("ativa", true).order("ordem").then(function (r) { COM.mods = r.data || []; return COM.mods; });
     var q = sb.from("posts").select("id,autor_id,texto,modalidade_id,fixado,oculto,created_at, post_midias(url,tipo,ordem), post_curtidas(user_id), comentarios(id,autor_id,texto,oculto,created_at)")
       .order("fixado", { ascending: false }).order("created_at", { ascending: false }).limit(COM.limite);
-    if (COM.filtro) q = q.eq("modalidade_id", COM.filtro);
     var pDen = staff ? sb.from("denuncias").select("id,motivo,post_id,comentario_id,created_at").eq("resolvida", false) : Promise.resolve({ data: [] });
     return Promise.all([pAutores, pMods, q.then(chk), pDen]).then(function (r) {
       var autores = r[0], mods = r[1], posts = r[2], dens = (r[3].data || []);
@@ -819,12 +818,9 @@
           '<textarea id="pn-texto" rows="3" maxlength="2000" placeholder="Como foi o treino hoje?"></textarea>' +
           '<div id="pn-prev" class="pn-prev"></div>' +
           '<div class="pn-barra"><label class="btn-mini claro pn-foto">📷 Foto ou vídeo<input type="file" id="pn-arq" accept="image/*,video/mp4,video/quicktime" multiple hidden></label>' +
-          '<select class="sel" id="pn-mod"><option value="">Toda a equipe</option>' + mods.map(function (m) { return '<option value="' + m.id + '">' + esc(m.nome) + "</option>"; }).join("") + "</select>" +
           (admin ? '<label class="check" style="font-size:13px"><input type="checkbox" id="pn-fixar"> Fixar aviso</label>' : "") +
-          '<button class="btn-mini" type="submit" id="pn-enviar">Publicar</button></div></form>' +
-          // filtros
-          '<div class="filtros" style="margin-top:16px"><button class="filtro" data-fmod="" aria-pressed="' + (!COM.filtro) + '">Todas</button>' +
-          mods.map(function (m) { return '<button class="filtro" data-fmod="' + m.id + '" aria-pressed="' + (COM.filtro === m.id) + '">' + esc(m.nome) + "</button>"; }).join("") + "</div>" +
+          '<button class="btn-mini" type="submit" id="pn-enviar" style="margin-left:auto">Publicar</button></div></form>' +
+          '<div style="height:14px"></div>' +
           (staff && dens.length ? '<div class="cartao" style="border-color:#5a3a00;margin-bottom:12px"><b style="color:#f2a20c">⚠ ' + dens.length + " denúncia(s) aguardando análise.</b> Os posts denunciados estão marcados abaixo.</div>" : "");
 
         if (!posts.length) html += '<div class="vazio-box">Nenhuma postagem ainda. Abre os trabalhos 🔥</div>';
@@ -835,7 +831,7 @@
           var meu = p.autor_id === S.user.id;
           return '<article class="post' + (p.fixado ? " fixado" : "") + (p.oculto ? " oculto" : "") + '" data-post="' + p.id + '">' +
             '<header class="post-topo">' + avatar(a) + '<div><b>' + esc(a.nome || "Membro ZXT") + "</b><span>" + tempoAtras(p.created_at) +
-            (p.modalidade_id ? " · " + esc(nomeMod[p.modalidade_id] || "") : "") + "</span></div>" +
+            "</span></div>" +
             (p.fixado ? '<span class="tag info">Fixado</span>' : "") + (p.oculto ? '<span class="tag neutro">Oculto</span>' : "") +
             (denPorPost[p.id] ? '<span class="tag atencao">' + denPorPost[p.id] + " denúncia(s)</span>" : "") +
             '<button class="post-menu" data-menu="' + p.id + '" aria-label="Opções">⋯</button></header>' +
@@ -881,7 +877,7 @@
           var texto = $("#pn-texto").value.trim();
           if (!texto && !arquivos.length) return U.toast("Escreva algo ou escolha uma foto.", "erro");
           var bt = $("#pn-enviar"); bt.disabled = true; bt.textContent = "Publicando...";
-          var dados = { autor_id: S.user.id, texto: texto || null, modalidade_id: $("#pn-mod").value || null };
+          var dados = { autor_id: S.user.id, texto: texto || null };
           if (admin && $("#pn-fixar") && $("#pn-fixar").checked) dados.fixado = true;
           sb.from("posts").insert(dados).select().single().then(function (r) {
             if (r.error) throw r.error;
@@ -904,7 +900,6 @@
         // --- interações ---
         tela.onclick = function (e) {
           var b;
-          if ((b = e.target.closest("[data-fmod]"))) { COM.filtro = b.getAttribute("data-fmod"); COM.limite = 20; return rotear(); }
           if (e.target.id === "ver-mais") { COM.limite += 20; return rotear(); }
           if ((b = e.target.closest("[data-curtir]"))) {
             var pid = b.getAttribute("data-curtir"), on = b.classList.contains("on");
