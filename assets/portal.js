@@ -126,9 +126,10 @@
   }
 
   function mostrarQuem() {
-    var nome = S.perfil.nome || (S.user.email || "").split("@")[0];
-    $("#quem-nome").textContent = primeiroNome(nome);
-    $("#topo-av").textContent = (nome || "Z").charAt(0).toUpperCase();
+    var nome = (S.perfil.nome || "").trim();
+    $("#quem-nome").textContent = nome ? primeiroNome(nome) : "Equipe ZXT";
+    if (!nome && !S.avisouNome) { S.avisouNome = true; setTimeout(function () { U.toast("Cadastre seu nome em Meu perfil para aparecer aqui no topo."); }, 800); }
+    $("#topo-av").textContent = (nome || "ZXT").charAt(0).toUpperCase();
     var dt = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza", weekday: "long", day: "2-digit", month: "long" });
     $("#topo-data").textContent = dt.charAt(0).toUpperCase() + dt.slice(1);
   }
