@@ -110,9 +110,83 @@
     }).catch(falhou);
   }
 
+  // ------------------------------------------------ pagamento no cadastro (aluno)
+  function telaPagamento() {
+    $("#nav").hidden = true;
+    var p = S.perfil;
+    Promise.all([
+      p.plano_escolhido_id ? sb.from("planos").select("nome,valor_centavos,periodicidade,max_turmas,turmas_livres").eq("id", p.plano_escolhido_id).single() : Promise.resolve({ data: null }),
+      (p.turmas_escolhidas || []).length ? sb.from("turmas").select("nome").in("id", p.turmas_escolhidas) : Promise.resolve({ data: [] })
+    ]).then(function (r) {
+      var pl = r[0].data, ts = (r[1].data || []).map(function (t) { return t.nome; });
+      if (!pl) {
+        tela.innerHTML = '<div class="aguardando"><img src="/assets/logo-zxt-completo.png" alt="ZXT"><h1>Falta o <em>plano</em></h1><p class="sub">Seu cadastro está sem plano. Fale com a recepção para escolher.</p>' +
+          '<a class="btn btn-vermelho" target="_blank" rel="noopener" href="https://ig.me/m/zxtoficial">Falar com a ZXT</a></div>';
+        return;
+      }
+      tela.innerHTML = '<div class="pagar">' +
+        "<h1>Último passo: <em>pagamento</em></h1>" +
+        '<p class="sub">Assim que o pagamento for confirmado, seu acesso é liberado na hora. Bem-vindo à família ZxT 🥊</p>' +
+        '<div class="cartao pagar-resumo"><p class="olho" style="margin:0 0 4px">Seu plano</p>' +
+        '<h2 style="margin:0">' + esc(pl.nome) + ' <span style="color:var(--vermelho)">' + U.reais(pl.valor_centavos) + "</span><small>/" + (pl.periodicidade === "mensal" ? "mês" : esc(pl.periodicidade)) + "</small></h2>" +
+        '<p style="margin:8px 0 0;color:var(--cinza)">' + esc(pl.turmas_livres ? "Todas as turmas e horários" : ts.join(" + ")) + " + sparring de sexta</p></div>" +
+        '<p class="pp-titulo" style="margin-top:22px">Como você quer pagar?</p>' +
+        '<div class="formas">' +
+        '<button class="forma" data-forma="PIX"><b>Pix</b><span>Libera em segundos</span></button>' +
+        '<button class="forma" data-forma="CREDIT_CARD"><b>Cartão de crédito</b><span>Cobra todo mês sozinho</span></button>' +
+        '<button class="forma" data-forma="BOLETO"><b>Boleto</b><span>Libera em 1 a 3 dias úteis</span></button></div>' +
+        '<div id="pagar-area"></div>' +
+        '<p class="dica" style="margin-top:18px">Pagamento processado pelo Asaas. A cobrança se repete todo mês na mesma data, e você pode cancelar falando com a recepção.</p>' +
+        '<button class="link" id="ja-paguei">Já paguei, atualizar</button></div>';
+      $("#ja-paguei").onclick = function () { verificar(true); };
+      tela.onclick = function (e) {
+        var b = e.target.closest("[data-forma]"); if (!b) return;
+        U.$$(".forma").forEach(function (x) { x.classList.toggle("sel", x === b); });
+        gerar(b.getAttribute("data-forma"));
+      };
+    });
+
+    function gerar(forma) {
+      var area = $("#pagar-area");
+      area.innerHTML = '<p class="carregando">Gerando seu pagamento...</p>';
+      sb.auth.getSession().then(function (s) {
+        return fetch("/api/assinar", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + s.data.session.access_token }, body: JSON.stringify({ forma: forma }) });
+      }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (x) {
+        if (!x.ok) { area.innerHTML = '<div class="cartao" style="border-color:#5a1015"><span class="tag risco">Não gerado</span> ' + esc(x.j.erro || "Tente de novo em instantes.") + "</div>"; return; }
+        if (x.j.pago) return verificar(true);
+        var d = x.j, h = "";
+        if (forma === "PIX" && d.pix) {
+          h = '<div class="cartao pix"><p style="margin:0 0 10px"><b>Pague ' + U.reais(Math.round(d.valor * 100)) + " no Pix</b>. Abra o app do banco e escaneie o QR ou use o copia e cola.</p>" +
+            '<img class="pix-qr" src="data:image/png;base64,' + d.pix.imagem + '" alt="QR code Pix">' +
+            '<div class="busca" style="margin:12px 0 0"><input readonly id="pix-cc" value="' + esc(d.pix.copiaCola) + '"><button class="btn-mini" id="pix-copiar">Copiar código</button></div>' +
+            '<p class="dica" style="margin:10px 0 0">Esta tela confere o pagamento sozinha. Não precisa fechar.</p></div>';
+        } else if (forma === "BOLETO") {
+          h = '<div class="cartao"><p style="margin:0 0 12px">Boleto de <b>' + U.reais(Math.round(d.valor * 100)) + "</b> com vencimento em " + U.data(d.vencimento) + ". O acesso libera quando o banco compensar (1 a 3 dias úteis).</p>" +
+            '<a class="btn btn-vermelho" target="_blank" rel="noopener" href="' + esc(d.boleto || d.link) + '">Abrir boleto</a></div>';
+        } else {
+          h = '<div class="cartao"><p style="margin:0 0 12px">Você vai para a página segura do Asaas para digitar o cartão. Depois de pagar, volte para esta tela: ela libera seu acesso sozinha.</p>' +
+            '<a class="btn btn-vermelho" target="_blank" rel="noopener" href="' + esc(d.link) + '">Pagar com cartão</a></div>';
+        }
+        area.innerHTML = h;
+        var cp = $("#pix-copiar");
+        if (cp) cp.onclick = function () { navigator.clipboard.writeText($("#pix-cc").value).then(function () { U.toast("Código Pix copiado"); }); };
+      }).catch(function () { area.innerHTML = '<div class="cartao"><span class="tag risco">Sem conexão</span> Não deu para falar com o servidor. Tente de novo.</div>'; });
+    }
+
+    function verificar(avisar) {
+      sb.from("profiles").select("status").eq("id", S.user.id).single().then(function (r) {
+        if (r.data && r.data.status === "ativo") { U.toast("Pagamento confirmado. Bora treinar! 🔥"); setTimeout(function () { location.reload(); }, 900); }
+        else if (avisar) U.toast("Ainda não recebemos a confirmação. Pix confirma em segundos; boleto em até 3 dias úteis.", "erro");
+      });
+    }
+    clearInterval(S.timerPag);
+    S.timerPag = setInterval(function () { verificar(false); }, 5000);
+  }
+
   function telaBloqueio() {
     $("#nav").hidden = true;
     var p = S.perfil;
+    if (p.status === "pendente" && p.tipo_cadastro !== "professor") return telaPagamento();
     var recusado = p.status === "recusado";
     tela.innerHTML = '<div class="aguardando">' +
       '<img src="/assets/logo-zxt-completo.png" alt="ZXT">' +
