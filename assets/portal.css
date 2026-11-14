@@ -328,3 +328,8 @@ a.filtro { text-decoration: none; display: inline-block; }
 @media (min-width: 960px) { .lote-barra { bottom: 12px; } }
 .ev-chk { width: 20px; height: 20px; vertical-align: -3px; margin-right: 6px; accent-color: #3ddc84; }
 .btn-mini.perigo { background: #b3261e; color: #fff; border: 1px solid #b3261e; }
+.aviso-bloqueio { display: grid; gap: 4px; padding: 14px 16px; margin: 0 0 16px; background: #2a0709; border: 1px solid #b3261e; border-left: 4px solid #ff5a5f; }
+.aviso-bloqueio.leve { background: #241a05; border-color: #6b4f0b; border-left-color: #f2a20c; }
+.aviso-bloqueio b { font-family: var(--display); text-transform: uppercase; letter-spacing: 1px; font-size: 16px; }
+.aviso-bloqueio span { color: #ddd; font-size: 14px; }
+.aviso-bloqueio .btn-mini { justify-self: start; margin-top: 6px; }

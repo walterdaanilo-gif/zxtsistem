@@ -20,6 +20,7 @@
     professor: '<circle cx="12" cy="7" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/><path d="M9 14l3 3 3-3"/>',
     sino: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
     mais: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+    cadeado: '<rect x="4" y="11" width="16" height="10" rx="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
     evento: '<path d="M4 7h16v13H4zM4 11h16M9 3v6M15 3v6"/><path d="M10 15.5l1.5 1.5 3-3"/>',
     config: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'
   };
@@ -27,8 +28,8 @@
 
   var MENUS = {
     aluno: [["comunidade", "Comunidade", "comunidade"], ["inicio", "Início", "casa"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["agenda", "Agenda", "agenda"], ["graduacao", "Graduação", "faixa"], ["notificacoes", "Notificações", "sino"], ["perfil", "Perfil", "perfil"]],
-    professor: [["chamada", "Chamada", "chamada"], ["eventos", "Eventos", "evento"], ["aprovacoes", "Aprovações", "aprovar"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["cobrancas", "Financeiro", "dinheiro"], ["finturmas", "Minhas turmas", "grupo"], ["graduacoes", "Graduação", "faixa"], ["notificacoes", "Notificações", "sino"], ["perfil", "Perfil", "perfil"]],
-    admin: [["painel", "Painel", "painel"], ["eventos", "Eventos", "evento"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["professores", "Professores", "professor"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["config", "Configurações", "config"], ["notificacoes", "Notificações", "sino"], ["perfil", "Meu perfil", "perfil"]]
+    professor: [["chamada", "Chamada", "chamada"], ["eventos", "Eventos", "evento"], ["aprovacoes", "Aprovações", "aprovar"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["cobrancas", "Financeiro", "dinheiro"], ["inadimplencia", "Inadimplência", "cadeado"], ["finturmas", "Minhas turmas", "grupo"], ["graduacoes", "Graduação", "faixa"], ["notificacoes", "Notificações", "sino"], ["perfil", "Perfil", "perfil"]],
+    admin: [["painel", "Painel", "painel"], ["eventos", "Eventos", "evento"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["professores", "Professores", "professor"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["inadimplencia", "Inadimplência", "cadeado"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["config", "Configurações", "config"], ["notificacoes", "Notificações", "sino"], ["perfil", "Meu perfil", "perfil"]]
   };
 
   var NOME_PAPEL = { aluno: "Aluno", professor: "Professor", admin: "Administração" };
@@ -270,7 +271,9 @@
     atualizarSino();
     tela.innerHTML = '<p class="carregando">Carregando...</p>';
     window.scrollTo(0, 0);
-    Promise.resolve().then(function () { return VIEWS[r](); }).catch(falhou);
+    Promise.resolve().then(function () { return VIEWS[r](); }).then(function () {
+      if (S.modo === "aluno" && ["inicio", "agenda", "checkin", "financeiro", "comunidade"].indexOf(r) >= 0) avisoBloqueio(r);
+    }).catch(falhou);
   }
   window.addEventListener("hashchange", function () { if (S.modo) rotear(); });
 
@@ -665,8 +668,10 @@
     var t = aula.turmas;
     Promise.all([
       sb.from("matriculas").select("aluno_id, profiles(id,nome,whatsapp,saude_obs)").eq("turma_id", aula.turma_id).then(chk),
-      sb.from("reservas").select("aluno_id,status,fez_sparring,checkin_metodo, profiles!reservas_aluno_id_fkey(id,nome,whatsapp,saude_obs)").eq("aula_id", aula.id).then(chk)
+      sb.from("reservas").select("aluno_id,status,fez_sparring,checkin_metodo, profiles!reservas_aluno_id_fkey(id,nome,whatsapp,saude_obs)").eq("aula_id", aula.id).then(chk),
+      sb.rpc("alunos_bloqueados").then(function (x) { return x.data || []; })
     ]).then(function (r) {
+      var bloq = {}; (r[2] || []).forEach(function (x) { bloq[typeof x === "string" ? x : x.alunos_bloqueados] = 1; });
       var alunos = {}, res = {};
       r[0].forEach(function (m) { if (m.profiles) alunos[m.aluno_id] = m.profiles; });
       r[1].forEach(function (x) { res[x.aluno_id] = x; if (x.profiles) alunos[x.aluno_id] = x.profiles; });
@@ -677,7 +682,7 @@
         (t.coletiva ? '<div class="busca"><input id="add-busca" placeholder="Adicionar aluno de outra turma (nome)"><button class="btn-mini claro" id="add-ok">Buscar</button></div><div id="add-res"></div>' : "") +
         '<div class="cartao">' + (ids.length ? ids.map(function (id) {
           var a = alunos[id], x = res[id] || {};
-          return '<div class="chamada-linha"><div><b>' + esc(a.nome || "Sem nome") + "</b> " + (x.status ? tagStatus(x.status) : "") +
+          return '<div class="chamada-linha"><div><b>' + esc(a.nome || "Sem nome") + "</b> " + (x.status ? tagStatus(x.status) : "") + (bloq[id] ? ' <span class="tag risco">🔒 Inadimplente</span>' : "") +
             (x.checkin_metodo === "qr" ? ' <span class="tag info">QR</span>' : "") +
             (a.saude_obs ? '<p style="margin:4px 0 0;color:#f2a20c;font-size:13px">⚠ ' + esc(a.saude_obs) + "</p>" : "") + "</div>" +
             '<div class="botoes">' + (t.sparring ? '<label class="check" style="font-size:13px"><input type="checkbox" data-sp="' + id + '"' + (x.fez_sparring ? " checked" : "") + "> Sparring</label>" : "") +
@@ -1012,8 +1017,8 @@
         modal("Dar baixa manual", '<div class="campo"><label for="bx-f">Forma de pagamento</label><select class="sel" id="bx-f"><option value="dinheiro">Dinheiro</option><option value="pix_direto">Pix direto</option><option value="cartao">Cartão na maquininha</option><option value="outro">Outro</option></select></div>' +
           '<div class="campo" style="margin-top:12px"><label for="bx-o">Observação</label><input id="bx-o"></div><p style="color:var(--cinza);font-size:13px">Fica registrado quem deu a baixa e quando.</p>',
           [["Cancelar", null, "claro"], ["Confirmar baixa", function (f) {
-            return sb.rpc("baixa_manual", { p_cobranca: b.getAttribute("data-baixa"), p_forma: f.querySelector("#bx-f").value, p_obs: f.querySelector("#bx-o").value || null })
-              .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Baixa registrada"); rotear(); });
+            return postApi("/api/baixa", { cobrancas: [b.getAttribute("data-baixa")], forma: f.querySelector("#bx-f").value, obs: f.querySelector("#bx-o").value || null })
+              .then(function (j) { U.toast("Baixa registrada"); rotear(); }).catch(function (e) { U.toast(e.message, "erro"); return false; });
           }, "verde"]]);
       };
     });
@@ -1401,7 +1406,7 @@
         '<h2>Regras do portal</h2><form class="form" id="cf-regras"><div class="linha2">' +
         campo("cf-cancel", "Cancelar reserva até (horas antes)", c.horas_cancelamento_reserva, "number", ' min="0" max="48"') +
         campo("cf-janela", "Check-in abre (minutos antes da aula)", c.janela_checkin_min, "number", ' min="0" max="120"') + "</div>" +
-        campo("cf-bloq", "Bloquear check-in após quantos dias de atraso (vazio = não bloqueia)", c.dias_bloqueio_atraso, "number", ' min="1" max="90"') +
+        campo("cf-bloq", "Bloquear reserva e check-in a partir de quantos dias de atraso (vazio = não bloqueia)", c.dias_bloqueio_atraso, "number", ' min="1" max="90"') +
         '<button class="btn btn-vermelho" type="submit">Salvar regras</button></form>' +
         // turmas
         '<h2>Turmas</h2><div class="lista">' + turmas.map(function (t) {
@@ -2399,6 +2404,95 @@
               .eq("id", a.id).then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Academia salva"); blocoAcademias(); });
           }]]);
       };
+    });
+  }
+
+  // =================================================================== INADIMPLÊNCIA
+  function postApi(url, corpo) {
+    return sb.auth.getSession().then(function (ss) {
+      return fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + ss.data.session.access_token }, body: JSON.stringify(corpo) });
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.erro || "Não deu certo. Tente de novo."); if (j.erro) U.toast(j.erro, "erro"); return j; }); });
+  }
+
+  function avisoBloqueio(rota) {
+    sb.rpc("meu_bloqueio").then(function (x) {
+      var b = x.data; if (!b || !b.total_centavos) return;
+      var h1 = tela.querySelector("h1"); if (!h1 || tela.querySelector(".aviso-bloqueio")) return;
+      var div = document.createElement("div");
+      div.className = "aviso-bloqueio" + (b.bloqueado ? "" : " leve");
+      var venc = b.vencimento ? U.data(b.vencimento) : "";
+      div.innerHTML = b.bloqueado
+        ? "<b>🔒 Acesso às aulas bloqueado</b><span>Mensalidade vencida em " + venc + " (" + U.reais(b.total_centavos) + "). Reserva e check-in voltam assim que o pagamento confirmar.</span>" +
+          (rota !== "financeiro" ? '<a class="btn-mini" href="#/financeiro">Pagar agora</a>' : "")
+        : b.liberado_ate
+          ? "<b>🔓 Acesso liberado até " + U.data(b.liberado_ate) + "</b><span>Mensalidade em atraso (" + U.reais(b.total_centavos) + "). Regularize até essa data.</span>" + (rota !== "financeiro" ? '<a class="btn-mini" href="#/financeiro">Pagar</a>' : "")
+          : "<b>⚠️ Mensalidade vencida em " + venc + "</b><span>" + U.reais(b.total_centavos) + ". O acesso às aulas bloqueia " + b.dias + " dias depois do vencimento. Pague pelo portal e evite o bloqueio.</span>" + (rota !== "financeiro" ? '<a class="btn-mini" href="#/financeiro">Pagar</a>' : "");
+      h1.parentNode.insertBefore(div, h1);
+    });
+  }
+
+  VIEWS.inadimplencia = function () {
+    return Promise.all([
+      sb.rpc("lista_inadimplencia").then(chk),
+      sb.from("academia_config").select("dias_bloqueio_atraso").single().then(chk)
+    ]).then(function (r) {
+      var l = r[0], dias = r[1].dias_bloqueio_atraso;
+      var bloq = l.filter(function (x) { return x.bloqueado; }), lib = l.filter(function (x) { return x.liberado_ate; });
+      var total = l.reduce(function (s, x) { return s + Number(x.total_centavos); }, 0);
+      tela.innerHTML = "<h1><em>Inadimplência</em></h1><p class=\"sub\">" + (dias ? "Reserva e check-in bloqueiam a partir do " + dias + "º dia depois do vencimento. Quem paga pelo portal é liberado na hora; aqui você libera quem pagou em mãos." : "O bloqueio por atraso está desligado em Configurações.") + "</p>" +
+        '<div class="kpis"><div class="kpi alerta"><b>' + bloq.length + '</b><span>Bloqueados</span></div><div class="kpi"><b>' + (l.length - bloq.length) + '</b><span>Vencidos, ainda sem bloqueio</span></div>' +
+        '<div class="kpi"><b>' + lib.length + '</b><span>Liberados temporariamente</span></div><div class="kpi alerta"><b>' + U.reais(total) + "</b><span>Total vencido</span></div></div>" +
+        "<h2>Alunos com mensalidade vencida</h2>" +
+        (l.length ? '<div class="lista">' + l.map(function (x) {
+          var falta = dias ? dias - x.dias_atraso : null;
+          var tag = x.bloqueado ? '<span class="tag risco">🔒 Bloqueado</span>' : x.liberado_ate ? '<span class="tag info">🔓 Liberado até ' + U.data(x.liberado_ate) + "</span>"
+            : falta > 0 ? '<span class="tag atencao">Bloqueia em ' + falta + " dia(s)</span>" : "";
+          return '<div class="item' + (x.bloqueado ? " destaque" : "") + '"><div><h3>' + esc(x.nome || "Sem nome") + "</h3><p>" + U.reais(x.total_centavos) + " · " + x.qtd + " mensalidade(s) · vencida desde " + U.data(x.vencimento) +
+            " (" + x.dias_atraso + " dia(s))" + (x.asaas ? " · cobrança no Asaas" : "") + "</p></div>" +
+            '<div class="acoes">' + tag + ' <button class="btn-mini verde" data-maos="' + x.aluno_id + '">Recebi em mãos</button>' +
+            (x.liberado_ate ? ' <button class="btn-mini claro" data-encerrar="' + x.aluno_id + '">Encerrar liberação</button>' : ' <button class="btn-mini claro" data-liberar="' + x.aluno_id + '">Liberar até…</button>') +
+            (x.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(x.whatsapp, "Oi, " + primeiroNome(x.nome) + "! Sua mensalidade da ZXT está em aberto (" + U.reais(x.total_centavos) + ")" + (x.bloqueado ? " e o acesso às aulas ficou bloqueado" : "") + ". Pelo portal você paga por Pix, cartão ou boleto e libera na hora: " + location.origin + "/app#/financeiro") + '">Cobrar</a>' : "") +
+            "</div></div>";
+        }).join("") + "</div>" : '<div class="vazio-box">Ninguém com mensalidade vencida 🔥</div>');
+      tela.onclick = function (e) {
+        var b;
+        if ((b = e.target.closest("[data-maos]"))) return receberEmMaos(l.filter(function (x) { return x.aluno_id === b.getAttribute("data-maos"); })[0]);
+        if ((b = e.target.closest("[data-liberar]"))) {
+          var a = l.filter(function (x) { return x.aluno_id === b.getAttribute("data-liberar"); })[0];
+          var d3 = new Date(Date.now() + 3 * 864e5).toLocaleDateString("sv-SE", { timeZone: "America/Fortaleza" });
+          return modal("Liberar " + primeiroNome(a.nome) + " sem pagamento", '<p style="color:var(--cinza);font-size:14px">Use quando o aluno combinou de pagar em alguns dias. Ele treina normalmente até a data e depois bloqueia de novo se não pagar. Se ele já pagou em mãos, use "Recebi em mãos".</p>' +
+            '<div class="campo"><label for="lb-d">Liberado até</label><input type="date" id="lb-d" value="' + d3 + '"></div>' +
+            '<div class="campo" style="margin-top:10px"><label for="lb-m">Motivo</label><input id="lb-m" placeholder="Ex.: paga na sexta"></div>',
+            [["Cancelar", null, "claro"], ["Liberar", function (m) {
+              return sb.rpc("liberar_acesso", { p_aluno: a.aluno_id, p_ate: m.querySelector("#lb-d").value, p_motivo: m.querySelector("#lb-m").value.trim() || null })
+                .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Acesso liberado"); rotear(); });
+            }, "verde"]]);
+        }
+        if ((b = e.target.closest("[data-encerrar]"))) {
+          if (!confirmar(b)) return;
+          sb.rpc("encerrar_liberacao", { p_aluno: b.getAttribute("data-encerrar") }).then(function (x) { if (x.error) return U.erro(x.error); U.toast("Liberação encerrada"); rotear(); });
+        }
+      };
+    });
+  };
+
+  function receberEmMaos(a) {
+    sb.from("cobrancas").select("id,descricao,vencimento,valor_final_centavos,provider_id").eq("aluno_id", a.aluno_id).in("status", ["em_aberto", "atrasado"]).order("vencimento").then(chk).then(function (cs) {
+      var hoje = U.hojeISO();
+      modal("Recebi em mãos: " + (a.nome || ""), '<p style="color:var(--cinza);font-size:14px;margin-top:0">Marque o que foi pago. A baixa libera o acesso na hora e fica registrada com seu nome.</p>' +
+        cs.map(function (c) {
+          return '<label class="check" style="margin-bottom:10px"><input type="checkbox" data-cb="' + c.id + '"' + (c.vencimento <= hoje ? " checked" : "") + "> <span><b style=\"color:#fff\">" + esc(c.descricao) + " · " + U.reais(c.valor_final_centavos) + "</b><br>vence " + U.data(c.vencimento) +
+            (c.provider_id ? " · também fica como recebida no Asaas" : "") + "</span></label>";
+        }).join("") +
+        '<div class="campo" style="margin-top:6px"><label for="rm-f">Forma</label><select class="sel" id="rm-f"><option value="dinheiro">Dinheiro</option><option value="pix_direto">Pix direto (conta da academia)</option><option value="cartao">Cartão na maquininha</option><option value="outro">Outro</option></select></div>' +
+        '<div class="campo" style="margin-top:10px"><label for="rm-o">Observação</label><input id="rm-o" placeholder="Ex.: pagou ao professor Ricardo"></div>',
+        [["Cancelar", null, "claro"], ["Confirmar pagamento", function (m) {
+          var ids = U.$$("[data-cb]", m).filter(function (c) { return c.checked; }).map(function (c) { return c.getAttribute("data-cb"); });
+          if (!ids.length) { U.toast("Marque a mensalidade paga.", "erro"); return false; }
+          return postApi("/api/baixa", { cobrancas: ids, forma: m.querySelector("#rm-f").value, obs: m.querySelector("#rm-o").value.trim() || null }).then(function (j) {
+            U.toast(j.feitas + " mensalidade(s) baixada(s). Acesso liberado."); rotear();
+          }).catch(function (e) { U.toast(e.message, "erro"); return false; });
+        }, "verde"]]);
     });
   }
 

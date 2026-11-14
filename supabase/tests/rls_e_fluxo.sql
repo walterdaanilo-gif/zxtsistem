@@ -36,8 +36,8 @@ begin
   -- ===== como ADMIN: aprova A e B =====
   perform set_config('request.jwt.claims', json_build_object('sub', admin_id, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
-  perform aprovar_aluno(a, plano, array[turma], 10);
-  perform aprovar_aluno(b, plano, array[turma], 10);
+  perform aprovar_aluno(a, plano, array[turma], 28);   -- vencimento futuro: não cai no bloqueio por atraso
+  perform aprovar_aluno(b, plano, array[turma], 28);
   n := gerar_mensalidades();
   execute 'reset role';
   r := r || jsonb_build_object('4_admin_aprova', (select status from profiles where id = a) = 'ativo',
