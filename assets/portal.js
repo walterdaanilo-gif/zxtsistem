@@ -1786,9 +1786,11 @@
     return Promise.all([
       sb.from("eventos").select("*").order("inicio", { ascending: false }).then(chk),
       sb.from("evento_inscricoes").select("evento_id,status,valor_centavos,respostas,opcao_id").then(chk),
-      sb.from("evento_opcoes").select("id,nome,evento_id").then(chk)
+      sb.from("evento_opcoes").select("id,nome,evento_id").then(chk),
+      sb.from("professores_evento").select("nome, academias(nome)").then(chk)
     ]).then(function (r) {
-      var evs = r[0], ins = r[1], hoje = new Date();
+      var evs = r[0], ins = r[1], hoje = new Date(), mapaAcad = {};
+      r[3].forEach(function (p) { if (p.academias) mapaAcad[U.semAcento(p.nome).toLowerCase().trim()] = p.academias.nome; });
       function card(ev) {
         var rs = resumoInscricoes(ins.filter(function (i) { return i.evento_id === ev.id; }));
         var passou = new Date(ev.inicio) < hoje;
@@ -1800,7 +1802,7 @@
           (ev.slug ? ' <button class="btn-mini claro" data-copiar="' + esc(linkEvento(ev)) + '">Copiar link</button>' : "") +
           ' <a class="btn-mini" href="#/eventos?e=' + ev.id + '">Abrir</a></div></div>';
       }
-      var rel = verRel ? relatorioEventos(evs, ins, r[2]) : null;
+      var rel = verRel ? relatorioEventos(evs, ins, r[2], mapaAcad) : null;
       tela.innerHTML = "<h1><em>Eventos</em></h1><p class=\"sub\">Aulões, exames e eventos da academia. Cada evento tem um link de inscrição com pagamento no próprio formulário, e tudo fica gravado no sistema.</p>" +
         '<div class="filtros"><a class="filtro" href="#/eventos" aria-pressed="' + !verRel + '">Eventos</a><a class="filtro" href="#/eventos?ver=relatorio" aria-pressed="' + verRel + '">Relatório e receita</a></div>' +
         (verRel ? rel.html : '<div class="busca"><button class="btn-mini" id="novo-ev">Criar evento</button></div>' +
@@ -1808,7 +1810,9 @@
       if (rel) rel.ligar();
       tela.onclick = function (e) {
         var b = e.target.closest("[data-copiar]"); if (b) return copiar(b.getAttribute("data-copiar"));
-        if (e.target.id === "novo-ev") editorEvento(null, []);
+        if (e.target.id === "novo-ev") sb.from("professores_evento").select("nome").eq("ativo", true).order("nome").then(function (x) {
+          S.profsEvento = (x.data || []).map(function (p) { return p.nome; }); editorEvento(null, []);
+        });
       };
     });
   }
@@ -2068,6 +2072,7 @@
     var dt = ev.inicio ? new Date(ev.inicio) : null;
     var dia = dt ? dt.toLocaleDateString("sv-SE", { timeZone: "America/Fortaleza" }) : "", hora = dt ? dt.toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" }) : "";
     var ate = ev.inscricoes_ate ? new Date(ev.inscricoes_ate).toLocaleDateString("sv-SE", { timeZone: "America/Fortaleza" }) : "";
+    if (novo && S.profsEvento && S.profsEvento.length) c.extras = [{ id: "professor", rotulo: "Professor", tipo: "opcoes", opcoes: S.profsEvento, obrigatorio: true }];
     var extrasTxt = (c.extras || []).map(function (x) { return x.rotulo + (x.tipo === "opcoes" ? ": " + (x.opcoes || []).join(", ") : "") + (x.obrigatorio ? "" : " (opcional)"); }).join("\n");
     function linhaOp(o) {
       o = o || {};
@@ -2217,12 +2222,17 @@
 
   // =================================================================== RELATÓRIO DE EVENTOS
   function campoExtra(ev, re) { return (((ev.campos || {}).extras) || []).filter(function (x) { return re.test(x.rotulo) || re.test(x.id); })[0]; }
-  function relatorioEventos(evs, ins, ops) {
+  function relatorioEventos(evs, ins, ops, mapaAcad) {
+    mapaAcad = mapaAcad || {};
     var q = new URLSearchParams((location.hash.split("?")[1] || ""));
     var f = { de: q.get("de") || "", ate: q.get("ate") || "", ev: q.get("ev") || "", prof: q.get("prof") || "", acad: q.get("acad") || "" };
     var porId = {}; evs.forEach(function (e) { porId[e.id] = e; });
     var opNome = {}; ops.forEach(function (o) { opNome[o.id] = o.nome; });
-    function valorDe(i, re) { var ev = porId[i.evento_id], c = ev && campoExtra(ev, re); return c ? ((i.respostas || {})[c.id] || "") : ""; }
+    function valorDe(i, re) {
+      var ev = porId[i.evento_id], c = ev && campoExtra(ev, re), v = c ? ((i.respostas || {})[c.id] || "") : "";
+      if (!v && re === RA) v = mapaAcad[U.semAcento(valorDe(i, RP)).toLowerCase().trim()] || "";
+      return v;
+    }
     var RP = /professor/i, RA = /academia|unidade|filial/i;
     var evsF = evs.filter(function (e) {
       var d = new Date(e.inicio).toLocaleDateString("sv-SE", { timeZone: "America/Fortaleza" });
@@ -2265,7 +2275,7 @@
       '<select class="sel" id="rl-prof"><option value="">Todos os professores</option>' + Object.keys(profs).sort().map(function (p) { return "<option" + (p === f.prof ? " selected" : "") + ">" + esc(p) + "</option>"; }).join("") + "</select>" +
       '<select class="sel" id="rl-acad"><option value="">Todas as academias</option>' + Object.keys(acads).sort().map(function (p) { return "<option" + (p === f.acad ? " selected" : "") + ">" + esc(p) + "</option>"; }).join("") + "</select>" +
       '<button class="btn-mini claro" id="rl-csv" type="button">Baixar relatório</button></div>' +
-      (!Object.keys(acads).length ? '<p style="color:var(--cinza-2);font-size:13px;margin:10px 0 0">Para filtrar por academia, inclua a pergunta "Academia: Nome 1, Nome 2" no formulário do evento.</p>' : "") + "</div>" +
+      (!Object.keys(acads).length ? '<p style="color:var(--cinza-2);font-size:13px;margin:10px 0 0">Para filtrar por academia, cadastre as academias e ligue cada professor à dele em Configurações → Academias e professores.</p>' : "") + "</div>" +
       '<div class="kpis k6" style="margin-top:12px"><div class="kpi"><b>' + evsF.length + '</b><span>Eventos</span></div><div class="kpi"><b>' + tot[1].n + '</b><span>Inscritos</span></div>' +
       '<div class="kpi"><b>' + tot[1].pagos + '</b><span>Pagos ou isentos</span></div><div class="kpi"><b>' + U.reais(tot[1].recebido) + '</b><span>Receita recebida</span></div>' +
       '<div class="kpi alerta"><b>' + U.reais(tot[1].aReceber) + '</b><span>A receber</span></div><div class="kpi"><b>' + U.reais(tot[1].previsto) + "</b><span>Previsto</span></div></div>" +
@@ -2289,6 +2299,68 @@
       };
     }
     return { html: html, ligar: ligar };
+  }
+
+  // ------------------------------------------------ Configurações: academias e professores dos eventos
+  var configBase = VIEWS.config;
+  VIEWS.config = function () { return Promise.resolve(configBase()).then(blocoAcademias); };
+  function blocoAcademias() {
+    return Promise.all([
+      sb.from("academias").select("*").order("nome").then(chk),
+      sb.from("professores_evento").select("*").order("nome").then(chk)
+    ]).then(function (r) {
+      var acs = r[0], pfs = r[1];
+      var sec = document.getElementById("cf-academias");
+      if (!sec) {
+        sec = document.createElement("section"); sec.id = "cf-academias";
+        var alvo = U.$$("#tela h2").filter(function (h) { return /Textos legais/i.test(h.textContent); })[0];
+        if (alvo) tela.insertBefore(sec, alvo); else tela.appendChild(sec);
+      }
+      var ops = '<option value="">Sem academia</option>' + acs.filter(function (a) { return a.ativa; }).map(function (a) { return '<option value="' + a.id + '">' + esc(a.nome) + "</option>"; }).join("");
+      sec.innerHTML = "<h2>Academias e professores</h2>" +
+        '<p style="margin:-6px 0 12px;color:var(--cinza);font-size:14px">Base do filtro por academia no relatório de eventos. Cada professor (com o nome que aparece no formulário) fica ligado à academia dele.</p>' +
+        '<div class="lista">' + (acs.length ? acs.map(function (a) {
+          return '<div class="item' + (a.ativa ? "" : " inativa") + '"><div><h3>' + esc(a.nome) + "</h3><p>" + esc(a.cidade || "") + " · " +
+            pfs.filter(function (p) { return p.academia_id === a.id; }).length + " professor(es)</p></div>" +
+            '<div class="acoes"><button class="btn-mini claro" data-ac-ed="' + a.id + '">Editar</button></div></div>';
+        }).join("") : '<div class="vazio-box">Nenhuma academia cadastrada.</div>') + "</div>" +
+        '<div class="busca" style="margin-top:8px"><input id="ac-nome" placeholder="Nome da academia"><input id="ac-cid" placeholder="Cidade (opcional)"><button class="btn-mini" id="ac-add">Adicionar academia</button></div>' +
+        '<p class="pp-titulo">Professores dos eventos</p><div class="lista">' + pfs.map(function (p) {
+          return '<div class="item"><div><h3>' + esc(p.nome) + '</h3></div><div class="acoes"><select class="sel" data-pf-ac="' + p.id + '">' +
+            ops.replace('value="' + p.academia_id + '"', 'value="' + p.academia_id + '" selected') + "</select></div></div>";
+        }).join("") + "</div>" +
+        '<div class="busca" style="margin-top:8px"><input id="pf-nome" placeholder="Nome como aparece no formulário (ex.: Thiago)"><button class="btn-mini claro" id="pf-add">Adicionar professor</button></div>';
+      sec.querySelector("#ac-add").onclick = function () {
+        var n = sec.querySelector("#ac-nome").value.trim(); if (n.length < 2) return U.toast("Informe o nome da academia.", "erro");
+        sb.from("academias").insert({ nome: n, cidade: sec.querySelector("#ac-cid").value.trim() || null }).then(function (x) {
+          if (x.error) return U.erro(/duplicate/.test(x.error.message) ? { message: "Essa academia já existe." } : x.error); U.toast("Academia adicionada"); blocoAcademias();
+        });
+      };
+      sec.querySelector("#pf-add").onclick = function () {
+        var n = sec.querySelector("#pf-nome").value.trim(); if (n.length < 2) return U.toast("Informe o nome.", "erro");
+        sb.from("professores_evento").insert({ nome: n }).then(function (x) {
+          if (x.error) return U.erro(/duplicate/.test(x.error.message) ? { message: "Esse professor já está na lista." } : x.error); U.toast("Professor adicionado"); blocoAcademias();
+        });
+      };
+      sec.onchange = function (e) {
+        var sel = e.target.closest("[data-pf-ac]"); if (!sel) return;
+        sb.from("professores_evento").update({ academia_id: sel.value || null }).eq("id", sel.getAttribute("data-pf-ac")).then(function (x) {
+          if (x.error) return U.erro(x.error); U.toast("Academia do professor salva");
+        });
+      };
+      sec.onclick = function (e) {
+        e.stopPropagation();
+        var b = e.target.closest("[data-ac-ed]"); if (!b) return;
+        var a = acs.filter(function (x) { return x.id === b.getAttribute("data-ac-ed"); })[0];
+        modal("Editar academia", '<div class="campo"><label for="ae-n">Nome</label><input id="ae-n" value="' + esc(a.nome) + '"></div>' +
+          '<div class="campo" style="margin-top:10px"><label for="ae-c">Cidade</label><input id="ae-c" value="' + esc(a.cidade || "") + '"></div>' +
+          '<label class="check" style="margin-top:12px"><input type="checkbox" id="ae-a"' + (a.ativa ? " checked" : "") + "> Academia ativa</label>",
+          [["Cancelar", null, "claro"], ["Salvar", function (m) {
+            return sb.from("academias").update({ nome: m.querySelector("#ae-n").value.trim(), cidade: m.querySelector("#ae-c").value.trim() || null, ativa: m.querySelector("#ae-a").checked })
+              .eq("id", a.id).then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Academia salva"); blocoAcademias(); });
+          }]]);
+      };
+    });
   }
 
   setInterval(atualizarSino, 60000);
