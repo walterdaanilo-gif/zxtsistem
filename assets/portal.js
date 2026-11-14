@@ -186,7 +186,7 @@
   function telaBloqueio() {
     $("#nav").hidden = true;
     var p = S.perfil;
-    if (p.status === "pendente" && p.tipo_cadastro !== "professor") return telaPagamento();
+    if (p.status === "pendente" && p.tipo_cadastro !== "professor" && !p.aluno_existente) return telaPagamento();
     var recusado = p.status === "recusado";
     tela.innerHTML = '<div class="aguardando">' +
       '<img src="/assets/logo-zxt-completo.png" alt="ZXT">' +
@@ -196,7 +196,9 @@
         : p.status === "pendente"
           ? (p.tipo_cadastro === "professor"
             ? "Recebemos seu cadastro de professor, " + esc(primeiroNome(p.nome)) + ". A equipe ZXT confere sua graduação e confirma as turmas. Assim que aprovar, seu acesso de professor é liberado."
-            : "Recebemos seu cadastro, " + esc(primeiroNome(p.nome)) + ". A equipe ZXT confere seus dados e libera seu acesso. Assim que aprovar, é só entrar de novo.")
+            : p.aluno_existente
+              ? "Recebemos seu cadastro de aluno atual, " + esc(primeiroNome(p.nome)) + ". A equipe ZXT confere seu plano, sua turma e sua situação, e libera seu acesso sem cobrança agora."
+              : "Recebemos seu cadastro, " + esc(primeiroNome(p.nome)) + ". A equipe ZXT confere seus dados e libera seu acesso. Assim que aprovar, é só entrar de novo.")
           : "Seu acesso está " + esc(p.status) + ". Fale com a recepção para reativar.") + "</p>" +
       '<a class="btn btn-vermelho" target="_blank" rel="noopener" href="https://ig.me/m/zxtoficial">Falar com a ZXT</a>' +
       '<button class="link" id="recarregar">Já fui aprovado? Atualizar</button></div>';
@@ -797,10 +799,16 @@
       var ps = r[0], dp = r[1], planos = dp.planos, turmas = dp.turmas;
       var nomePlano = {}; planos.forEach(function (x) { nomePlano[x.id] = x.nome; });
       var nomeTurma = {}; turmas.forEach(function (x) { nomeTurma[x.id] = x.nome; });
+      var linkAtuais = location.origin + "/entrar?modo=cadastro&atual=1";
+      var msgAtuais = "Fala, família ZxT! 🥊 A ZXT agora tem portal do aluno: agenda, check-in, mensalidades e graduação no celular.\n\nFaça seu cadastro por este link (é rapidinho e você NÃO paga nada agora, a gente confirma sua situação):\n" + linkAtuais;
       tela.innerHTML = "<h1><em>Aprovações</em></h1><p class=\"sub\">" + ps.length + " cadastro(s) aguardando. O plano e as turmas escolhidos pelo aluno já vêm marcados: confira e aprove.</p>" +
+        '<div class="cartao" style="margin-bottom:16px"><p style="margin:0 0 4px"><b>Convide os alunos atuais</b></p><p style="margin:0 0 10px;color:var(--cinza);font-size:14px">Quem se cadastra por este link não paga no cadastro: aparece aqui como <b>Aluno atual</b> para você confirmar se está em dia ou atrasado.</p>' +
+        '<div class="busca" style="margin:0"><input readonly value="' + esc(linkAtuais) + '"><button class="btn-mini claro" id="cp-atuais">Copiar link</button>' +
+        '<a class="btn-mini" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(msgAtuais) + '">Enviar no WhatsApp</a></div></div>' +
         (ps.length ? '<div class="lista">' + ps.map(function (p) {
           var idade = U.idade(p.data_nascimento);
-          return '<div class="cartao"><h3 style="margin:0;font-family:var(--display);font-style:italic;text-transform:uppercase;font-size:22px">' + esc(p.nome || p.email) + "</h3>" +
+          return '<div class="cartao"><h3 style="margin:0;font-family:var(--display);font-style:italic;text-transform:uppercase;font-size:22px">' + esc(p.nome || p.email) +
+            (p.aluno_existente ? ' <span class="tag info" style="font-style:normal;vertical-align:middle">Aluno atual</span>' : ' <span class="tag atencao" style="font-style:normal;vertical-align:middle">Não pagou</span>') + "</h3>" +
             '<p style="margin:6px 0;color:var(--cinza);font-size:14px">' + esc(p.email || "") + " · " + esc(p.whatsapp || "sem WhatsApp") + (idade !== null ? " · " + idade + " anos" : "") +
             " · cadastrado em " + U.data(p.created_at) + "</p>" +
             '<p style="margin:0 0 6px;font-size:14px">Escolheu: <b>' + esc(nomePlano[p.plano_escolhido_id] || "sem plano escolhido") + "</b>" +
@@ -811,22 +819,36 @@
             '<div class="busca" style="margin:0"><button class="btn-mini verde" data-aprovar="' + p.id + '">Aprovar</button><button class="btn-mini claro" data-recusar="' + p.id + '">Recusar</button>' +
             (p.whatsapp ? '<a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(p.whatsapp) + '">WhatsApp</a>' : "") + "</div></div>";
         }).join("") + "</div>" : '<div class="vazio-box">Nenhum cadastro aguardando 🔥</div>');
+      $("#cp-atuais").onclick = function () { navigator.clipboard.writeText(linkAtuais).then(function () { U.toast("Link copiado"); }); };
       tela.onclick = function (e) {
         var a = e.target.closest("[data-aprovar]"), rc = e.target.closest("[data-recusar]");
         if (a) {
           var id = a.getAttribute("data-aprovar");
           var perfilAp = ps.filter(function (x) { return x.id === id; })[0] || {};
           var pickAp = null;
-          var fm = modal("Aprovar cadastro",
+          var atual = !!perfilAp.aluno_existente;
+          var fm = modal(atual ? "Aprovar aluno atual" : "Aprovar cadastro",
             (planos.length ? "" : '<p style="color:#f2a20c;font-size:14px">Nenhum plano ativo. Cadastre em Financeiro.</p>') +
             '<div id="ap-picker"></div>' +
-            '<div class="campo" style="margin-top:14px"><label for="ap-dia">Dia de vencimento</label><input id="ap-dia" type="number" min="1" max="28" value="10"></div>',
+            '<div class="campo" style="margin-top:14px"><label for="ap-dia">Dia de vencimento da mensalidade</label><input id="ap-dia" type="number" min="1" max="28" value="10"></div>' +
+            (atual ? '<div class="campo" style="margin-top:14px"><label>Situação da mensalidade</label>' +
+              '<label class="check"><input type="radio" name="ap-sit" value="dia" checked> <span><b>Em dia</b>: a primeira mensalidade pelo portal sai no mês que vem</span></label>' +
+              '<label class="check"><input type="radio" name="ap-sit" value="atraso"> <span><b>Atrasado</b>: entra uma mensalidade em atraso para pagar pelo portal</span></label>' +
+              '<div class="campo" id="ap-atraso-box" hidden style="margin-top:8px"><label for="ap-venc">Venceu em</label><input id="ap-venc" type="date" value="' + U.hojeISO() + '"></div></div>' : ""),
             [["Cancelar", null, "claro"], ["Aprovar", function (f) {
               var er = pickAp.erro(); if (er) { U.toast(er, "erro"); return false; }
-              var v = pickAp.valor();
-              return sb.rpc("aprovar_aluno", { p_aluno: id, p_plano: v.plano, p_turmas: v.turmas, p_dia_vencimento: parseInt(f.querySelector("#ap-dia").value, 10) || 10 })
-                .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Aprovado. Bem-vindo à família ZxT 🥊"); montarMenu(); rotear(); });
+              var v = pickAp.valor(), dia = parseInt(f.querySelector("#ap-dia").value, 10) || 10;
+              var q;
+              if (atual) {
+                if (!v.plano) { U.toast("Escolha o plano do aluno.", "erro"); return false; }
+                var emDia = f.querySelector('input[name="ap-sit"]:checked').value === "dia";
+                q = sb.rpc("aprovar_aluno_atual", { p_aluno: id, p_plano: v.plano, p_turmas: v.turmas, p_dia_vencimento: dia, p_em_dia: emDia, p_vencimento_atraso: emDia ? null : f.querySelector("#ap-venc").value });
+              } else {
+                q = sb.rpc("aprovar_aluno", { p_aluno: id, p_plano: v.plano, p_turmas: v.turmas, p_dia_vencimento: dia });
+              }
+              return q.then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Aprovado. Bem-vindo à família ZxT 🥊"); montarMenu(); rotear(); });
             }, "verde"]]);
+          if (atual) fm.addEventListener("change", function (ev) { if (ev.target.name === "ap-sit") fm.querySelector("#ap-atraso-box").hidden = ev.target.value !== "atraso"; });
           pickAp = PlanoPicker(fm.querySelector("#ap-picker"), { planos: planos, turmas: turmas, modalidades: dp.modalidades, permitirSemPlano: true,
             planoId: perfilAp.plano_escolhido_id, turmaIds: (perfilAp.turmas_escolhidas || []).filter(function (t) { return nomeTurma[t]; }) });
         }

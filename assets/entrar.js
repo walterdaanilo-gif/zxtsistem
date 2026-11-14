@@ -61,6 +61,7 @@
       box.querySelector("[data-grau]").innerHTML = h;
     }
   });
+  if (params.get("atual") === "1") { var ca = document.getElementById("c-atual"); if (ca) ca.checked = true; }
   if (params.get("tipo") === "professor") setTimeout(function () { var r = document.querySelector('input[name="tipo"][value="professor"]'); if (r) { r.checked = true; r.dispatchEvent(new Event("change", { bubbles: true })); } }, 0);
   function ehProfessor() { var r = document.querySelector('input[name="tipo"]:checked'); return r && r.value === "professor"; }
   function dadosDoProfessor() {
@@ -175,6 +176,7 @@
           perfil.experiencia = dp.exp || null; perfil.modalidades_interesse = dp.mods;
         } else {
           perfil.tipo_cadastro = "aluno"; perfil.modalidades_interesse = picker.modalidadesSlugs();
+          perfil.aluno_existente = !!(document.getElementById("c-atual") || {}).checked;
           perfil.plano_escolhido_id = d.escolha.plano; perfil.turmas_escolhidas = d.escolha.turmas;
         }
         if (menor) {

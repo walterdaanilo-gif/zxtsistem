@@ -270,3 +270,5 @@ body.portal { background: var(--preto); padding-bottom: 84px; }
 .item.mens { grid-template-columns: 1fr auto; }
 .pagar-c { grid-column: 1 / -1; border-top: 1px solid #222; padding-top: 12px; }
 .pix-box { text-align: left; }
+.aluno-atual { margin-top: 14px; padding: 12px; border: 1px dashed #3a3a3a; background: #0c0c0c; }
+.aluno-atual b { color: #fff; }
