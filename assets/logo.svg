@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="ZXT">
+  <!-- Placeholder do logo. Troque por /assets/logo-zxt.png quando tiver o arquivo oficial. -->
+  <circle cx="100" cy="100" r="96" fill="#0a0a0a" stroke="#e1141e" stroke-width="6"/>
+  <g font-family="Impact, 'Bebas Neue', 'Arial Black', sans-serif" font-size="78" font-style="italic" font-weight="900" text-anchor="middle">
+    <text x="52" y="128" fill="#e1141e">Z</text>
+    <text x="100" y="128" fill="#ffffff">X</text>
+    <text x="148" y="128" fill="#e1141e">T</text>
+  </g>
+  <path d="M70 112 L132 84" stroke="#e1141e" stroke-width="7" stroke-linecap="round"/>
+</svg>

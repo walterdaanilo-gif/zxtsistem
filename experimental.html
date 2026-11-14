@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aula experimental | ZXT - Zulu Xtreme Team</title>
+  <meta name="description" content="Agende sua aula experimental de Muay Thai, Boxe, MMA ou Jiu-Jitsu na ZXT, em Natal/RN. Vem pra ZXT!">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Aula experimental na ZXT 🥊">
+  <meta property="og:description" content="Escolha a modalidade e o horário. A gente te espera no tatame. Vem pra ZXT!">
+  <meta property="og:image" content="/assets/og.jpg">
+  <meta property="og:locale" content="pt_BR">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="wrap">
+      <a class="marca" href="/" aria-label="ZXT início">
+        <img src="/assets/logo.svg" alt="" width="42" height="42">
+        <span>Z<b>X</b>T<em class="nome-longo"> <b>·</b> ZULU XTREME TEAM</em></span>
+      </a>
+      <a class="btn btn-borda btn-sm" href="/#horarios">Ver horários</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="exp-hero">
+      <h1 class="titulo">Aula experimental</h1>
+      <p class="sub">Vem pra ZXT! Leva 1 minuto.</p>
+    </section>
+
+    <form class="form" id="form-exp" novalidate>
+      <div class="campo">
+        <label for="nome">Seu nome</label>
+        <input id="nome" name="nome" autocomplete="name" required placeholder="Nome e sobrenome">
+      </div>
+
+      <div class="campo">
+        <label for="idade">Idade</label>
+        <input id="idade" name="idade" type="number" inputmode="numeric" min="4" max="99" required placeholder="Ex.: 25">
+        <small id="aviso-menor" hidden>Menor de 18 anos: o responsável precisa acompanhar na primeira aula.</small>
+      </div>
+
+      <fieldset class="campo">
+        <legend>Modalidade</legend>
+        <div class="opcoes" id="op-modalidade"></div>
+      </fieldset>
+
+      <fieldset class="campo" id="campo-turma" hidden>
+        <legend>Turma e horário</legend>
+        <div class="turmas" id="op-turma"></div>
+      </fieldset>
+
+      <fieldset class="campo">
+        <legend>Já treinou luta?</legend>
+        <div class="opcoes">
+          <label class="opcao"><input type="radio" name="exp" value="Nunca treinei" required><span>Nunca treinei</span></label>
+          <label class="opcao"><input type="radio" name="exp" value="Já treinei"><span>Já treinei</span></label>
+        </div>
+      </fieldset>
+
+      <div class="campo">
+        <label for="origem">Como conheceu a ZXT?</label>
+        <select id="origem" name="origem" required>
+          <option value="">Escolha uma opção</option>
+          <option>Instagram</option>
+          <option>WhatsApp</option>
+          <option>Indicação de aluno</option>
+          <option>Evento</option>
+          <option>Passei na frente</option>
+          <option>Outro</option>
+        </select>
+      </div>
+
+      <div class="campo" id="campo-indicacao" hidden>
+        <label for="indicou">Quem te indicou?</label>
+        <input id="indicou" name="indicou" placeholder="Nome do aluno">
+      </div>
+
+      <div class="campo">
+        <label for="obs">Alguma lesão ou condição de saúde? <small>(opcional)</small></label>
+        <textarea id="obs" name="obs" rows="2" placeholder="Ex.: dor no joelho, asma..."></textarea>
+      </div>
+
+      <p class="erro" id="erro" role="alert"></p>
+      <button class="btn btn-vermelho" type="submit" id="enviar">Agendar minha aula 🥊</button>
+      <p class="dica" id="dica-envio"></p>
+    </form>
+
+    <div class="ok-box" id="ok-box" role="status">
+      <h3>Mensagem copiada, guerreiro 🔥</h3>
+      <p>Abrimos o direct da ZXT. É só colar a mensagem abaixo e enviar. Se não abriu, toque no botão.</p>
+      <pre id="msg-pronta"></pre>
+      <a class="btn btn-vermelho btn-sm" id="abrir-direct" href="#" target="_blank" rel="noopener">Abrir direct do Instagram</a>
+    </div>
+
+    <p style="color:var(--cinza);font-size:14px;margin:28px 0 0;max-width:640px">Leve roupa confortável, água e chegue 10 minutos antes. Luvas e equipamentos: pergunte na mensagem se precisa trazer.</p>
+  </main>
+
+  <footer class="rodape">
+    <div class="wrap">
+      <p class="pil">Disciplina <span>•</span> Respeito <span>•</span> Foco <span>•</span> Evolução</p>
+      <p>ZXT - Zulu Xtreme Team · Av. Perimetral Sul, 500, Cidade da Esperança, Natal/RN</p>
+      <p><a data-insta href="#">Instagram @zxtoficial</a> · © <span data-ano></span> ZXT</p>
+    </div>
+  </footer>
+
+  <script src="/assets/config.js"></script>
+  <script src="/assets/app.js"></script>
+  <script src="/assets/experimental.js"></script>
+</body>
+</html>
