@@ -20,7 +20,7 @@
   // planos e turmas: escolher o plano libera a escolha das turmas
   var picker = null;
   carregarDadosPlano().then(function (dp) {
-    picker = PlanoPicker($("#c-plano"), { planos: dp.planos, turmas: dp.turmas, modalidades: dp.modalidades, planoId: params.get("plano") });
+    picker = PlanoPicker($("#c-plano"), { planos: dp.planos, turmas: dp.turmas, modalidades: dp.modalidades, planoId: params.get("plano"), explicar: true });
   });
   sb.from("academia_config").select("termo_responsabilidade,politica_privacidade,versao_termos").single().then(function (r) {
     if (r.data) textos = r.data;
