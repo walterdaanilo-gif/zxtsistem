@@ -22,7 +22,7 @@ begin
   r := r || jsonb_build_object(
     '1_professor_registra_graduacao', (select count(*) from graduacoes_aluno where aluno_id = a) = 1,
     '2_professor_marca_tecnica', (select count(*) from aluno_tecnicas where aluno_id = a) = 1,
-    '3_professor_nao_edita_sistema', (select nome from graduacao_niveis where id = n1) <> 'hack',
+    '3_professor_edita_sistema', (select nome from graduacao_niveis where id = n1) = 'hack',
     '4_auditoria_da_graduacao', (select count(*) from auditoria where tabela = 'graduacoes_aluno' and depois->>'aluno_id' = a::text) = 1);
 
   -- aluno não se gradua sozinho, mas vê a própria

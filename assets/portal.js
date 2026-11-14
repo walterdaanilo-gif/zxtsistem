@@ -24,7 +24,7 @@
 
   var MENUS = {
     aluno: [["comunidade", "Comunidade", "comunidade"], ["inicio", "Início", "casa"], ["agenda", "Agenda", "agenda"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["graduacao", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
-    professor: [["chamada", "Chamada", "chamada"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["perfil", "Perfil", "perfil"]],
+    professor: [["chamada", "Chamada", "chamada"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["graduacoes", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
     admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["professores", "Professores", "professor"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["config", "Configurações", "config"], ["perfil", "Meu perfil", "perfil"]]
   };
   var NOME_PAPEL = { aluno: "Aluno", professor: "Professor", admin: "Administração" };
@@ -736,7 +736,8 @@
         l("Observações do professor", p.observacoes_professor) + l("Papéis", papeis.join(", "));
       if (admin) html += '<div class="campo" style="margin-top:12px"><label for="f-st">Mudar status</label><select class="sel" id="f-st">' +
         ["ativo", "trancado", "inativo", "pendente", "recusado"].map(function (s) { return '<option' + (s === p.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select></div>";
-      var bots = [["Fechar", null, "claro"], ["Graduação", function () { graduacaoAluno(id, p); }, "verde"], ["Observação", function () { observacao(id, p.nome); }, "claro"]];
+      var bots = [["Fechar", null, "claro"], ["Graduação", function () { graduacaoAluno(id, p); }, "verde"], ["Editar dados", function () { editarDadosAluno(id, p); }, "claro"],
+        ["Turmas", function () { turmasDoAluno(id, p); }, "claro"], ["Observação", function () { observacao(id, p.nome); }, "claro"]];
       if (admin) {
         bots.push(["Plano e turmas", function () { planoETurmas(id, p); }, "verde"]);
         bots.push([papeis.indexOf("professor") >= 0 ? "Tirar de professor" : "Tornar professor", function () {
@@ -1406,6 +1407,37 @@
         }, "verde"]]);
       pick = PlanoPicker(f.querySelector("#pt-picker"), { planos: dp.planos, turmas: dp.turmas, modalidades: dp.modalidades, permitirSemPlano: true,
         planoId: ass ? ass.plano_id : null, turmaIds: mats.filter(function (t) { return dp.turmas.some(function (x) { return x.id === t && !x.coletiva; }); }) });
+    }).catch(function (e) { U.erro(e); });
+  }
+
+  // ------------------------------------------------ equipe: dados e turmas do aluno
+  function editarDadosAluno(id, p) {
+    function c(k, rot, tipo) { return '<div class="campo" style="margin-top:10px"><label for="ed-' + k + '">' + rot + '</label><input id="ed-' + k + '" type="' + (tipo || "text") + '" value="' + esc(p[k] || "") + '"></div>'; }
+    modal("Editar dados · " + (p.nome || ""),
+      c("nome", "Nome") + '<div class="linha2">' + c("whatsapp", "WhatsApp", "tel") + c("data_nascimento", "Nascimento", "date") + "</div>" +
+      '<div class="linha2">' + c("contato_emergencia_nome", "Contato de emergência") + c("contato_emergencia_telefone", "Telefone de emergência", "tel") + "</div>" +
+      '<div class="campo" style="margin-top:10px"><label for="ed-saude_obs">Lesões ou condições de saúde</label><textarea id="ed-saude_obs" rows="2" class="sel" style="width:100%">' + esc(p.saude_obs || "") + "</textarea></div>" +
+      '<div class="linha2">' + c("federacao", "Federação") + c("federacao_registro", "Registro na federação") + "</div>" +
+      '<p class="dica" style="margin:10px 0 0">CPF, plano, status e financeiro ficam com a administração.</p>',
+      [["Cancelar", null, "claro"], ["Salvar", function (f) {
+        var d = {}; ["nome", "whatsapp", "data_nascimento", "contato_emergencia_nome", "contato_emergencia_telefone", "saude_obs", "federacao", "federacao_registro"].forEach(function (k) { d[k] = f.querySelector("#ed-" + k).value; });
+        return sb.rpc("atualizar_dados_aluno", { p_aluno: id, p: d }).then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Dados atualizados"); rotear(); });
+      }, "verde"]]);
+  }
+  function turmasDoAluno(id, p) {
+    Promise.all([
+      sb.from("turmas").select("id,nome,modalidade_id,coletiva,ativa,dias_semana,hora_inicio").eq("ativa", true).eq("coletiva", false).order("nome").then(chk),
+      sb.from("matriculas").select("turma_id").eq("aluno_id", id).then(chk)
+    ]).then(function (r) {
+      var marc = r[1].map(function (m) { return m.turma_id; });
+      modal("Turmas · " + (p.nome || ""), '<p style="color:var(--cinza);font-size:14px;margin:0 0 10px">Marque as turmas do aluno. O sistema respeita quantas turmas o plano dele permite. O sparring de sexta é de todos.</p>' +
+        r[0].map(function (t) {
+          return '<label class="check pp-turma"><input type="checkbox" name="ta" value="' + t.id + '"' + (marc.indexOf(t.id) >= 0 ? " checked" : "") + "> <span><b>" + esc(t.nome) + "</b> · " + horarioTurma(t) + "</span></label>";
+        }).join(""),
+        [["Cancelar", null, "claro"], ["Salvar", function (f) {
+          var sel = U.$$('input[name="ta"]:checked', f).map(function (i) { return i.value; });
+          return sb.rpc("definir_turmas_aluno", { p_aluno: id, p_turmas: sel }).then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Turmas atualizadas"); });
+        }, "verde"]]);
     }).catch(function (e) { U.erro(e); });
   }
 
