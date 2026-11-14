@@ -1,6 +1,6 @@
 (function () {
   var $ = U.$, esc = U.esc;
-  var S = { user: null, perfil: null, papeis: [], modo: null };
+  var S = { user: null, perfil: null, papeis: [], modo: null, tokenCheckin: null, ultimoCheckin: null };
   var tela = $("#tela");
 
   // ---------------------------------------------------------------- ícones
@@ -69,8 +69,9 @@
 
   function iniciar() {
     // token de check-in vindo do QR (sobrevive ao login)
-    var mh = location.hash.match(/[?&]t=([a-f0-9-]+)/i);
-    if (mh) try { sessionStorage.setItem("zxt_checkin", mh[1]); } catch (e) {}
+    var mh = decodeURIComponent(location.hash).match(/[?&]t=([a-z0-9-]+)/i);
+    if (mh) { S.tokenCheckin = mh[1]; try { sessionStorage.setItem("zxt_checkin", mh[1]); } catch (e) {} }
+    if (!S.tokenCheckin) try { S.tokenCheckin = sessionStorage.getItem("zxt_checkin"); } catch (e) {}
     sb.auth.getSession().then(function (r) {
       if (!r.data.session) { location.replace("/entrar"); return; }
       S.user = r.data.session.user;
@@ -87,7 +88,7 @@
         if (!modos.length) modos = ["aluno"];
         var salvo = null; try { salvo = localStorage.getItem("zxt_modo"); } catch (e) {}
         S.modo = modos.indexOf(salvo) >= 0 ? salvo : modos[0];
-        if (sessionStorage.getItem("zxt_checkin") && modos.indexOf("aluno") >= 0) S.modo = "aluno";
+        if (S.tokenCheckin && modos.indexOf("aluno") >= 0) S.modo = "aluno";
         $("#troca-papel").innerHTML = modos.length > 1 ? modos.map(function (m) {
           return '<button data-modo="' + m + '" aria-pressed="' + (m === S.modo) + '">' + NOME_PAPEL[m] + "</button>";
         }).join("") : "";
@@ -100,7 +101,7 @@
           montarMenu(); rotear();
         };
         montarMenu();
-        if (sessionStorage.getItem("zxt_checkin")) location.hash = "#/checkin";
+        if (S.tokenCheckin && S.modo === "aluno" && history.replaceState) history.replaceState(null, "", "/app#/checkin");
         rotear();
       });
     }).catch(falhou);
@@ -274,24 +275,28 @@
   };
 
   VIEWS.checkin = function () {
-    var tok = null; try { tok = sessionStorage.getItem("zxt_checkin"); } catch (e) {}
+    var tok = S.tokenCheckin;
+    S.tokenCheckin = null;
+    try { sessionStorage.removeItem("zxt_checkin"); } catch (e) {}
     tela.innerHTML = "<h1>Check-<em>in</em></h1>" +
-      '<p class="sub">Na recepção, aponte a câmera do celular para o QR code da ZXT. O check-in é feito sozinho.</p>' +
+      '<p class="sub">Na recepção, aponte a câmera do celular para o QR code da ZXT. O check-in abre 30 minutos antes da aula e vai até o fim dela.</p>' +
       '<div class="cartao" id="ck-res"></div>' +
       '<h2>Sem câmera?</h2><div class="cartao"><p style="margin:0 0 10px;color:var(--cinza)">Peça o código à recepção e digite aqui.</p>' +
-      '<div class="busca"><input id="ck-cod" placeholder="Código do QR" autocomplete="off"><button class="btn-mini" id="ck-ok">Fazer check-in</button></div></div>';
+      '<div class="busca"><input id="ck-cod" placeholder="Código do QR" autocomplete="off" autocapitalize="off"><button class="btn-mini" id="ck-ok">Fazer check-in</button></div></div>';
+    function mostrar(html) { S.ultimoCheckin = html; var el = $("#ck-res"); if (el) el.innerHTML = html; }
     function fazer(t) {
-      $("#ck-res").innerHTML = '<p class="carregando">Registrando...</p>';
-      return sb.rpc("fazer_checkin", { p_token: t.trim() }).then(function (x) {
-        try { sessionStorage.removeItem("zxt_checkin"); } catch (e) {}
-        if (x.error) { $("#ck-res").innerHTML = '<p style="margin:0">' + tagStatus("falta").replace("Falta", "Não registrado") + " " + esc(x.error.message) + "</p>"; return; }
-        $("#ck-res").innerHTML = '<h3 style="margin:0;font-family:var(--display);font-style:italic;text-transform:uppercase;font-size:28px">Check-in feito, guerreiro 🔥</h3><p style="color:var(--cinza);margin:6px 0 0">Presença registrada às ' + U.hora(x.data.checkin_em) + ". Bom treino!</p>";
-        if (history.replaceState) history.replaceState(null, "", "/app#/checkin");
+      mostrar('<p class="carregando" style="padding:0">Registrando seu check-in...</p>');
+      return sb.rpc("fazer_checkin", { p_token: String(t).trim().toLowerCase() }).then(function (x) {
+        if (x.error) {
+          var dica = /Nenhuma aula/.test(x.error.message) ? "<br><small style=\"color:var(--cinza)\">Confira o horário da sua turma na Agenda. Se a aula já começou, peça ao professor para marcar sua presença na chamada.</small>" : "";
+          return mostrar('<p style="margin:0"><span class="tag risco">Não registrado</span> ' + esc(x.error.message) + dica + "</p>");
+        }
+        mostrar('<h3 style="margin:0;font-family:var(--display);font-style:italic;text-transform:uppercase;font-size:28px">Check-in feito, guerreiro 🔥</h3><p style="color:var(--cinza);margin:6px 0 0">Presença registrada às ' + U.hora(x.data.checkin_em) + ". Bom treino!</p>");
       });
     }
     $("#ck-ok").onclick = function () { var v = $("#ck-cod").value; if (v) fazer(v); };
     if (tok) return fazer(tok);
-    $("#ck-res").innerHTML = '<p style="margin:0;color:var(--cinza)">Aguardando leitura do QR code da recepção.</p>';
+    $("#ck-res").innerHTML = S.ultimoCheckin || '<p style="margin:0;color:var(--cinza)">Aguardando leitura do QR code da recepção.</p>';
   };
 
   VIEWS.financeiro = function () {
