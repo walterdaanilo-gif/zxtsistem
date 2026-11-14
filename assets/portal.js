@@ -334,8 +334,7 @@
           var aulas = pres.filter(function (p) { return p.aulas.turmas.modalidade_id === mid && p.aulas.inicio.slice(0, 10) >= desde; }).length;
           var meses = Math.floor((Date.now() - new Date(desde + "T12:00:00")) / (30.44 * 864e5));
           html += '<div class="cartao"><h2 style="margin:0 0 6px">' + esc(mods[mid]) + "</h2>" +
-            '<p style="margin:0 0 14px;color:var(--cinza)">Atual: <b style="color:#fff">' + (atual ? esc(atual.graduacao_niveis.nome) + (atual.grau ? " · " + atual.grau + "º grau" : "") + "</b> " + U.barraGrad(atual.graduacao_niveis, 56) +
-              (atual.graduacao_niveis.categoria ? ' <span class="tag neutro">' + esc(atual.graduacao_niveis.categoria) + "</span>" : "") : "Sem graduação registrada</b>") + "</p>";
+            '<p style="margin:0 0 14px;color:var(--cinza)">Atual: <b style="color:#fff">' + (atual ? esc(atual.graduacao_niveis.nome) + (atual.grau ? " · " + atual.grau + "º grau" : "") + "</b> " + U.barraGrad(atual.graduacao_niveis, 56) : "Sem graduação registrada</b>") + "</p>";
           if (prox) {
             var rq = reqs.filter(function (q) { return q.nivel_id === prox.id; });
             var ok = rq.filter(function (q) { return feitas.indexOf(q.id) >= 0; }).length;
@@ -1124,7 +1123,7 @@
             '<div class="campo"><label>Cor ' + U.barraGrad(n, 48) + '</label><input data-c="cor" type="color" value="' + esc(n.cor || "#888888") + '" style="height:46px;padding:4px"></div></div>' +
             '<div class="linha2" style="margin-top:10px"><div class="campo"><label><input type="checkbox" data-ponta' + (n.cor2 ? " checked" : "") + '> Ponta de outra cor</label>' +
               '<input data-c="cor2" type="color" value="' + esc(n.cor2 || "#ffffff") + '" style="height:46px;padding:4px"></div>' +
-            '<div class="campo"><label>Categoria</label><input data-c="categoria" value="' + esc(n.categoria || "") + '" placeholder="Ex.: Iniciante"></div></div>' +
+            '<div class="campo"></div></div>' +
             '<div class="linha2" style="margin-top:10px"><div class="campo"><label>Ordem</label><input data-c="ordem" type="number" value="' + n.ordem + '"></div>' +
             '<div class="campo"><label>Graus (0 = sem grau)</label><input data-c="graus_max" type="number" min="0" max="10" value="' + n.graus_max + '"></div></div>' +
             '<div class="linha2" style="margin-top:10px"><div class="campo"><label>Tempo mínimo (meses)</label><input data-c="tempo_minimo_meses" type="number" min="0" value="' + n.tempo_minimo_meses + '"></div>' +
@@ -1147,7 +1146,6 @@
             d[k] = i.type === "checkbox" ? i.checked : (i.type === "number" ? parseInt(i.value, 10) || 0 : i.value.trim());
           });
           if (!card.querySelector("[data-ponta]").checked) d.cor2 = null;
-          if (!d.categoria) d.categoria = null;
           if (m.sistema === "prajied" && /faixa/i.test(d.nome)) return U.toast('No Muay Thai é prajied, não "faixa".', "erro");
           sb.from("graduacao_niveis").update(d).eq("id", b.getAttribute("data-salvar-nivel")).then(function (x) { if (x.error) return U.erro(x.error); U.toast("Salvo"); });
         }
