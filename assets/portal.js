@@ -673,7 +673,7 @@
   VIEWS.cobrancas = function () {
     var filtro = (location.hash.match(/st=(\w+)/) || [])[1] || "abertas";
     return Promise.all([
-      sb.from("planos").select("*, plano_modalidades(modalidade_id, modalidades(nome))").order("nome").then(chk),
+      sb.from("planos").select("*, plano_modalidades(modalidade_id, modalidades(nome))").order("valor_centavos", { ascending: false }).then(chk),
       sb.from("cobrancas").select("*, profiles!cobrancas_aluno_id_fkey(nome,whatsapp)").order("vencimento", { ascending: false }).limit(300).then(chk)
     ]).then(function (r) {
       var planos = r[0], cs = r[1];

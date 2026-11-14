@@ -217,7 +217,7 @@ window.PlanoPicker = function (el, opts) {
 };
 window.carregarDadosPlano = function () {
   return Promise.all([
-    sb.from("planos").select("id,nome,valor_centavos,periodicidade,max_turmas,turmas_livres").eq("ativo", true).order("valor_centavos"),
+    sb.from("planos").select("id,nome,valor_centavos,periodicidade,max_turmas,turmas_livres").eq("ativo", true).order("valor_centavos", { ascending: false }),
     sb.from("turmas").select("id,nome,modalidade_id,dias_semana,hora_inicio,coletiva").eq("ativa", true).order("nome"),
     sb.from("modalidades").select("id,slug,nome").eq("ativa", true).order("ordem")
   ]).then(function (r) { return { planos: r[0].data || [], turmas: r[1].data || [], modalidades: r[2].data || [] }; });
