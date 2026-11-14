@@ -44,6 +44,7 @@ window.U = {
     if (h.getMonth() < n.getMonth() || (h.getMonth() === n.getMonth() && h.getDate() < n.getDate())) a--;
     return a;
   },
+  semAcento: function (s) { return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, ""); },
   soDigitos: function (s) { return String(s || "").replace(/\D/g, ""); },
   wa: function (fone, msg) {
     var d = U.soDigitos(fone);

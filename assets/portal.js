@@ -1807,6 +1807,12 @@
       var ev = r[0], ops = r[1], ins = r[2];
       var extras = ((ev.campos || {}).extras || []);
       var exSel = extras.filter(function (x) { return x.tipo === "opcoes"; })[0];
+      if (exSel && !f.x && S.modo === "professor" && /professor/i.test(exSel.rotulo)) {
+        var meu = U.semAcento(primeiroNome(S.perfil.nome)).toLowerCase();
+        f.x = (exSel.opcoes || []).filter(function (o) { return U.semAcento(o).toLowerCase() === meu; })[0] || "";
+      }
+      if (f.x === "*") f.x = "";
+      var lote = S.loteEv === evId;
       var opNome = {}; ops.forEach(function (o) { opNome[o.id] = o.nome; });
       var rs = resumoInscricoes(ins);
       var exame = ev.tipo === "exame_graduacao";
@@ -1866,25 +1872,29 @@
             return '<option value="' + o[0] + '"' + (o[0] === f.st ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
           (ops.length ? '<select class="sel" id="evf-op"><option value="">Todas as opções</option>' + ops.map(function (o) { return '<option value="' + o.id + '"' + (o.id === f.op ? " selected" : "") + ">" + esc(o.nome) + "</option>"; }).join("") + "</select>" : "") +
           (exSel ? '<select class="sel" id="evf-x"><option value="">' + esc(exSel.rotulo) + ": todos</option>" + exSel.opcoes.map(function (o) { return "<option" + (o === f.x ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select>" : "") +
-        "</div><p style=\"color:var(--cinza);font-size:14px;margin:0 0 8px\">" + lista.length + " na lista</p>" +
+        "</div><div class=\"busca\" style=\"margin:0 0 8px;align-items:center\"><span style=\"color:var(--cinza);font-size:14px\">" + lista.length + " na lista</span>" +
+          (lista.some(function (i) { return i.status === "pendente"; }) ? '<button class="btn-mini ' + (lote ? "" : "claro") + '" id="ev-lote">' + (lote ? "Sair da confirmação em lote" : "Confirmar pagamentos em lote") + "</button>" : "") + "</div>" +
         (lista.length ? '<div class="lista">' + lista.map(function (i) {
           var resp = i.respostas || {};
           var ex = extras.map(function (x) { return resp[x.id] ? esc(x.rotulo) + ": " + esc(resp[x.id]) : ""; }).filter(Boolean).join(" · ");
-          return '<div class="item' + (i.status === "pendente" ? " destaque" : "") + '"><div><h3>' + esc(i.nome || "Sem nome") + "</h3><p>" +
+          var caixa = lote && i.status === "pendente" ? '<input type="checkbox" class="ev-chk" data-lote="' + i.id + '"' + (i.valor_centavos == null ? ' disabled title="Valor a confirmar: confirme pelo botão Pagou"' : "") + "> " : "";
+          return '<div class="item' + (i.status === "pendente" ? " destaque" : "") + '"><div><h3>' + caixa + esc(i.nome || "Sem nome") + "</h3><p>" +
             [opNome[i.opcao_id] ? esc(opNome[i.opcao_id]) : "", ex, i.valor_centavos == null ? '<span style="color:#f2a20c">valor a confirmar</span>' : U.reais(i.valor_centavos),
              ORIGEM_EV[i.origem] || esc(i.origem)].filter(Boolean).join(" · ") + "</p>" +
             (i.obs ? '<p style="color:#f2a20c">📝 ' + esc(i.obs) + "</p>" : "") +
             (i.status === "pago" && i.forma_pagamento ? "<p>Pago via " + esc(i.forma_pagamento) + (i.pago_em ? " em " + U.data(i.pago_em) : "") + (i.baixa_por ? " (baixa manual)" : "") + "</p>" : "") + "</div>" +
             '<div class="acoes">' + tagInscricao(i.status) +
             (exame && i.presente ? ' <span class="tag info">Presente</span>' : "") + (exame && i.aprovado === true ? ' <span class="tag ok">Aprovado</span>' : exame && i.aprovado === false ? ' <span class="tag risco">Não aprovado</span>' : "") +
-            (i.status === "pendente" && i.valor_centavos ? ' <button class="btn-mini verde" data-baixa-ev="' + i.id + '">Dar baixa</button>' : "") +
+            (i.status === "pendente" ? ' <button class="btn-mini verde" data-baixa-ev="' + i.id + '">Pagou ✓</button>' : "") +
             (i.status === "pendente" && i.whatsapp && i.valor_centavos ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(i.whatsapp, "Oi, " + primeiroNome(i.nome) + "! Sua inscrição no " + ev.titulo + " está com o pagamento pendente (" + U.reais(i.valor_centavos) + "). Pague por Pix, cartão ou boleto neste link: " + link + "?i=" + i.codigo) + '">Cobrar</a>' : "") +
             ' <button class="btn-mini claro" data-ins="' + i.id + '">Detalhes</button></div></div>';
-        }).join("") + "</div>" : '<div class="vazio-box">Ninguém nesse filtro.</div>');
+        }).join("") + "</div>" : '<div class="vazio-box">Ninguém nesse filtro.</div>') +
+        (lote ? '<div class="lote-barra"><b id="lote-n">0 selecionado(s)</b><select class="sel" id="lote-f"><option value="pix_direto">Pix direto</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão na maquininha</option><option value="outro">Outro</option></select>' +
+          '<button class="btn-mini claro" id="lote-todos">Marcar todos da lista</button><button class="btn-mini verde" id="lote-ok">Confirmar pagamento</button></div>' : "");
 
       function filtrar() {
         var p = new URLSearchParams(); p.set("e", evId);
-        var v = { q: $("#evf-q").value.trim(), st: $("#evf-st").value, op: $("#evf-op") ? $("#evf-op").value : "", x: $("#evf-x") ? $("#evf-x").value : "" };
+        var v = { q: $("#evf-q").value.trim(), st: $("#evf-st").value, op: $("#evf-op") ? $("#evf-op").value : "", x: $("#evf-x") ? ($("#evf-x").value || "*") : "" };
         Object.keys(v).forEach(function (k) { if (v[k]) p.set(k, v[k]); });
         history.replaceState(null, "", "#/eventos?" + p.toString());
         eventoDetalhe(evId).then(function () { var b = $("#evf-q"); if (b && v.q) { b.focus(); b.setSelectionRange(b.value.length, b.value.length); } });
@@ -1892,6 +1902,27 @@
       var tq; $("#evf-q").oninput = function () { clearTimeout(tq); tq = setTimeout(filtrar, 350); };
       ["#evf-st", "#evf-op", "#evf-x"].forEach(function (s) { if ($(s)) $(s).onchange = filtrar; });
       $("#ev-csv").onclick = function () { baixarCsv(ev, ops, ins, extras); };
+      if ($("#ev-lote")) $("#ev-lote").onclick = function () { S.loteEv = lote ? null : evId; eventoDetalhe(evId); };
+      function contarLote() { var n = U.$$(".ev-chk:checked").length; if ($("#lote-n")) $("#lote-n").textContent = n + " selecionado(s)"; return n; }
+      if (lote) {
+        tela.addEventListener("change", function (e) { if (e.target.classList.contains("ev-chk")) contarLote(); });
+        $("#lote-todos").onclick = function () { U.$$(".ev-chk:not(:disabled)").forEach(function (c) { c.checked = true; }); contarLote(); };
+        $("#lote-ok").onclick = function () {
+          var ids = U.$$(".ev-chk:checked").map(function (c) { return c.getAttribute("data-lote"); });
+          if (!ids.length) return U.toast("Marque quem pagou.", "erro");
+          var btn = this; if (!confirmar(btn)) return;
+          var forma = $("#lote-f").value, feitos = 0, erros = 0;
+          btn.disabled = true; btn.textContent = "Confirmando...";
+          ids.reduce(function (pr, id) {
+            return pr.then(function () {
+              return sb.rpc("baixa_inscricao", { p_inscricao: id, p_forma: forma, p_obs: "Confirmado em lote" }).then(function (x) { if (x.error) erros++; else feitos++; });
+            });
+          }, Promise.resolve()).then(function () {
+            U.toast(feitos + " pagamento(s) confirmado(s)" + (erros ? " · " + erros + " com erro" : ""), erros ? "erro" : "ok");
+            S.loteEv = null; eventoDetalhe(evId);
+          });
+        };
+      }
       if (admin) {
         $("#ev-editar").onclick = function () { editorEvento(ev, ops); };
         $("#ev-add").onclick = function () { inscricaoManual(ev, ops, extras); };
@@ -1901,11 +1932,18 @@
         if ((b = e.target.closest("[data-copiar]"))) return copiar(b.getAttribute("data-copiar"));
         if ((b = e.target.closest("[data-baixa-ev]"))) {
           var alvo = ins.filter(function (x) { return x.id === b.getAttribute("data-baixa-ev"); })[0];
-          return modal("Dar baixa: " + alvo.nome, "<p>" + U.reais(alvo.valor_centavos) + (opNome[alvo.opcao_id] ? " · " + esc(opNome[alvo.opcao_id]) : "") + "</p>" +
+          var semValor = alvo.valor_centavos == null;
+          return modal("Confirmar pagamento: " + alvo.nome, (semValor ? '<div class="campo"><label for="bxe-v">Valor recebido (R$)</label><input id="bxe-v" inputmode="decimal" placeholder="0,00"></div><p style="color:#f2a20c;font-size:13px">Esta opção está com valor a confirmar. Informe o valor que a pessoa pagou.</p>'
+              : "<p>" + U.reais(alvo.valor_centavos) + (opNome[alvo.opcao_id] ? " · " + esc(opNome[alvo.opcao_id]) : "") + "</p>") +
             '<div class="campo"><label for="bxe-f">Forma de pagamento</label><select class="sel" id="bxe-f"><option value="dinheiro">Dinheiro</option><option value="pix_direto">Pix direto (conta da academia)</option><option value="cartao">Cartão na maquininha</option><option value="outro">Outro</option></select></div>' +
             '<div class="campo" style="margin-top:12px"><label for="bxe-o">Observação</label><input id="bxe-o" placeholder="Ex.: comprovante enviado ao professor"></div><p style="color:var(--cinza);font-size:13px">Fica registrado quem deu a baixa e quando. Confira o comprovante antes.</p>',
-            [["Cancelar", null, "claro"], ["Confirmar baixa", function (m) {
-              return sb.rpc("baixa_inscricao", { p_inscricao: alvo.id, p_forma: m.querySelector("#bxe-f").value, p_obs: m.querySelector("#bxe-o").value || null })
+            [["Cancelar", null, "claro"], ["Confirmar pagamento", function (m) {
+              var vv = null;
+              if (semValor) {
+                vv = Math.round(parseFloat((m.querySelector("#bxe-v").value || "").replace(/\./g, "").replace(",", ".")) * 100);
+                if (!(vv > 0)) { U.toast("Informe o valor recebido.", "erro"); return false; }
+              }
+              return sb.rpc("baixa_inscricao", { p_inscricao: alvo.id, p_forma: m.querySelector("#bxe-f").value, p_obs: m.querySelector("#bxe-o").value || null, p_valor: vv })
                 .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Baixa registrada"); eventoDetalhe(evId); });
             }, "verde"]]);
         }

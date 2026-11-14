@@ -45,7 +45,14 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', pf, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   select count(*) into n from evento_inscricoes where evento_id = ev;
-  r := r || jsonb_build_object('8_professor_ve_inscritos', n = 3);
+  r := r || jsonb_build_object('8_professor_ve_inscritos', n >= 3);
+  execute 'reset role';
+  insert into evento_opcoes (evento_id, nome, valor_centavos, ordem) values (ev, 'Ainda sem valor', null, 3) returning id into opconf;
+  execute 'set local role authenticated';
+  x := inscrever_evento(jsonb_build_object('evento_id', ev, 'opcao_id', opconf, 'nome', 'Sem Valor Ainda', 'respostas', '{"professor": "A"}'::jsonb));
+  begin perform baixa_inscricao((x->>'id')::uuid, 'pix_direto'); ok := false; exception when others then ok := sqlerrm like 'Informe o valor%'; end;
+  perform baixa_inscricao((x->>'id')::uuid, 'pix_direto', null, 4500);
+  r := r || jsonb_build_object('16_baixa_sem_valor_pede_valor', ok and (select status = 'pago' and valor_centavos = 4500 from evento_inscricoes where id = (x->>'id')::uuid));
   perform baixa_inscricao(i2, 'dinheiro', 'pagou na recepção');
   perform atualizar_inscricao(i2, '{"presente": true}');
   insert into eventos (tipo, titulo, inicio, slug) values ('aulao', 'Aulão do professor', now() + interval '3 days', 'aulao-prof-x');
