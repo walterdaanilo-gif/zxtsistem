@@ -9,7 +9,7 @@
 
 const env = (k, padrao) => process.env[k] || padrao;
 const ASAAS = () => env('ASAAS_BASE_URL', 'https://api-sandbox.asaas.com/v3').replace(/\/$/, '');
-const SB = () => env('SUPABASE_URL', 'https://gsfvgdhjlqwrysgruyaj.supabase.co').replace(/\/$/, '');
+const SB = () => (env('SUPABASE_URL', '') || env('NEXT_PUBLIC_SUPABASE_URL', '') || 'https://gsfvgdhjlqwrysgruyaj.supabase.co').replace(/\/$/, '');
 
 async function asaas(caminho, opcoes = {}) {
   const r = await fetch(ASAAS() + caminho, {
@@ -28,10 +28,13 @@ async function asaas(caminho, opcoes = {}) {
 
 // chamadas ao banco com a chave secreta (ignoram RLS: use só para o necessário)
 async function sb(caminho, opcoes = {}) {
-  const chave = env('SUPABASE_SECRET_KEY', '');
+  // aceita a chave nova (sb_secret_...) ou a que a integração Vercel + Supabase cria (SUPABASE_SERVICE_ROLE_KEY)
+  const chave = env('SUPABASE_SECRET_KEY', '') || env('SUPABASE_SERVICE_ROLE_KEY', '');
+  const cab = { apikey: chave, 'Content-Type': 'application/json' };
+  if (/^eyJ/.test(chave)) cab.Authorization = 'Bearer ' + chave;   // chave antiga em formato JWT
   const r = await fetch(SB() + caminho, {
     method: opcoes.method || 'GET',
-    headers: Object.assign({ apikey: chave, 'Content-Type': 'application/json' }, opcoes.headers || {}),
+    headers: Object.assign(cab, opcoes.headers || {}),
     body: opcoes.body ? JSON.stringify(opcoes.body) : undefined
   });
   const txt = await r.text();
@@ -45,7 +48,7 @@ const rpc = (nome, args) => sb('/rest/v1/rpc/' + nome, { method: 'POST', body: a
 async function usuarioDoToken(req) {
   const auth = req.headers['authorization'] || '';
   if (!/^Bearer\s+/i.test(auth)) return null;
-  const r = await fetch(SB() + '/auth/v1/user', { headers: { apikey: env('SUPABASE_PUBLISHABLE_KEY', ''), Authorization: auth } });
+  const r = await fetch(SB() + '/auth/v1/user', { headers: { apikey: env('SUPABASE_PUBLISHABLE_KEY', '') || env('SUPABASE_ANON_KEY', '') || env('NEXT_PUBLIC_SUPABASE_ANON_KEY', ''), Authorization: auth } });
   if (!r.ok) return null;
   return r.json();
 }
