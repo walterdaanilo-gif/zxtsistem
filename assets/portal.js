@@ -23,7 +23,7 @@
   var MENUS = {
     aluno: [["comunidade", "Comunidade", "comunidade"], ["inicio", "Início", "casa"], ["agenda", "Agenda", "agenda"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["graduacao", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
     professor: [["chamada", "Chamada", "chamada"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["perfil", "Perfil", "perfil"]],
-    admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"]]
+    admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["perfil", "Meu perfil", "perfil"]]
   };
   var NOME_PAPEL = { aluno: "Aluno", professor: "Professor", admin: "Administração" };
 
@@ -82,7 +82,7 @@
       ]).then(function (res) {
         S.perfil = chk(res[0]);
         S.papeis = chk(res[1]).map(function (p) { return p.papel; });
-        $("#quem-nome").textContent = primeiroNome(S.perfil.nome || S.user.email);
+        mostrarQuem();
         var staff = S.papeis.indexOf("admin") >= 0 || S.papeis.indexOf("professor") >= 0;
         if (!staff && S.perfil.status !== "ativo") return telaBloqueio();
         var modos = ["admin", "professor", "aluno"].filter(function (p) { return S.papeis.indexOf(p) >= 0; });
@@ -125,8 +125,16 @@
     $("#recarregar").onclick = function () { location.reload(); };
   }
 
+  function mostrarQuem() {
+    var nome = S.perfil.nome || (S.user.email || "").split("@")[0];
+    $("#quem-nome").textContent = primeiroNome(nome);
+    $("#topo-av").textContent = (nome || "Z").charAt(0).toUpperCase();
+    var dt = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza", weekday: "long", day: "2-digit", month: "long" });
+    $("#topo-data").textContent = dt.charAt(0).toUpperCase() + dt.slice(1);
+  }
   function montarMenu() {
     $("#quem-papel").textContent = NOME_PAPEL[S.modo];
+    $("#portal-de").textContent = S.modo === "aluno" ? "Portal do aluno" : S.modo === "professor" ? "Portal do professor" : "Portal da equipe";
     $("#nav").innerHTML = MENUS[S.modo].map(function (m) {
       return '<a href="#/' + m[0] + '" data-r="' + m[0] + '">' + ic(m[2]) + "<span>" + m[1] + '</span><span class="bolha" hidden></span></a>';
     }).join("");
@@ -160,6 +168,9 @@
         });
       }]]);
   }
+
+  var NOME_MOD = { "muay-thai": "Muay Thai", "boxe": "Boxe", "mma": "MMA", "jiu-jitsu": "Jiu-Jitsu" };
+  function nomesMods(l) { return (l || []).map(function (x) { return NOME_MOD[x] || x; }).join(", "); }
 
   // =================================================================== ALUNO
   function cartaoPlano(planos) {
@@ -379,7 +390,7 @@
         saude_obs: $("#p-saude").value.trim() || null, federacao: $("#p-fed").value.trim() || null };
       sb.from("profiles").update(dados).eq("id", S.user.id).select().single().then(function (r) {
         if (r.error) return U.erro(r.error);
-        S.perfil = r.data; $("#quem-nome").textContent = primeiroNome(r.data.nome); U.toast("Perfil salvo");
+        S.perfil = r.data; mostrarQuem(); U.toast("Perfil salvo");
       });
     };
     $("#exportar").onclick = function () {
@@ -501,7 +512,7 @@
           return (!b || (p.nome || "").toLowerCase().indexOf(b) >= 0) && (!s || p.status === s) && (!an || (p.data_nascimento || "").slice(5, 7) === mesAtual);
         });
         $("#a-lista").innerHTML = l.length ? l.map(function (p) {
-          return '<div class="item"><div><h3>' + esc(p.nome || p.email) + "</h3><p>" + esc((p.modalidades_interesse || []).join(", ")) + (p.saude_obs ? " · ⚠ saúde" : "") + "</p></div>" +
+          return '<div class="item"><div><h3>' + esc(p.nome || p.email) + "</h3><p>" + esc(nomesMods(p.modalidades_interesse)) + (p.saude_obs ? " · ⚠ saúde" : "") + "</p></div>" +
             '<div class="acoes">' + tagStatus(p.status) + ' <button class="btn-mini claro" data-ficha="' + p.id + '">Ficha</button>' +
             (p.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(p.whatsapp, "Olá, " + primeiroNome(p.nome) + "! Aqui é da ZXT 🥊") + '">WhatsApp</a>' : "") + "</div></div>";
         }).join("") : '<div class="vazio-box">Ninguém encontrado.</div>';
