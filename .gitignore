@@ -2,3 +2,4 @@ node_modules
 .vercel
 .env*
 supabase/backup/*_dados.json
+docs/prints/
