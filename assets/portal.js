@@ -64,6 +64,21 @@
   }
   // links https viram clicáveis (o texto já vem escapado)
   function linkar(t) { return t.replace(/https:\/\/[^\s<]+[^\s<.,;:!?)]/g, function (u) { return '<a href="' + u + '" target="_blank" rel="noopener">' + u + "</a>"; }); }
+  // equipe = papel professor/admin ou cadastro feito como professor. Não entra em lista de alunos.
+  function carregarEquipe() {
+    return Promise.all([
+      sb.from("user_roles").select("user_id,papel").in("papel", ["professor", "admin"]).then(chk),
+      sb.from("profiles").select("id,cpf,nome").eq("tipo_cadastro", "professor").then(chk)
+    ]).then(function (r) {
+      var ids = {}, cpfs = {};
+      r[0].forEach(function (x) { ids[x.user_id] = 1; });
+      r[1].forEach(function (x) { ids[x.id] = 1; });
+      return Promise.resolve(Object.keys(ids).length ? sb.from("profiles").select("id,cpf").in("id", Object.keys(ids)).then(chk) : []).then(function (l) {
+        l.forEach(function (x) { if (x.cpf) cpfs[x.cpf] = 1; });
+        return { ids: ids, cpfs: cpfs, eh: function (id) { return !!ids[id]; } };
+      });
+    });
+  }
   function primeiroNome(n) { return (n || "Guerreiro").split(" ")[0]; }
   function inicioMes() { var h = U.hojeISO(); return h.slice(0, 8) + "01"; }
   function chk(r) { if (r.error) throw r.error; return r.data; }
@@ -677,7 +692,8 @@
         if ((b = e.target.closest("[data-add]"))) marcar(b.getAttribute("data-add"), true);
         if (e.target.id === "add-ok") {
           var nome = $("#add-busca").value.trim(); if (nome.length < 2) return;
-          sb.from("profiles").select("id,nome").eq("status", "ativo").ilike("nome", "%" + nome + "%").limit(8).then(function (r) {
+          Promise.all([sb.from("profiles").select("id,nome").eq("status", "ativo").ilike("nome", "%" + nome + "%").limit(20), carregarEquipe()]).then(function (rr) {
+            var r = { data: (rr[0].data || []).filter(function (p) { return !rr[1].eh(p.id); }).slice(0, 8) };
             $("#add-res").innerHTML = '<div class="lista" style="margin-bottom:12px">' + (r.data || []).map(function (p) {
               return '<div class="item"><div><h3>' + esc(p.nome) + '</h3></div><button class="btn-mini" data-add="' + p.id + '">Marcar presente</button></div>'; }).join("") + "</div>";
           });
@@ -704,11 +720,11 @@
       sb.from("user_roles").select("user_id,papel").then(chk)
     ]).then(function (rr) {
       var papeis = {}; rr[1].forEach(function (x) { (papeis[x.user_id] = papeis[x.user_id] || []).push(x.papel); });
-      // aba Alunos: só quem é aluno (professor que também treina aparece; equipe pura não)
+      // aba Alunos: só alunos. Professor (aprovado ou aguardando) fica na aba Professores.
       var ps = rr[0].filter(function (p) {
         var pp = papeis[p.id] || [];
-        if (p.status === "pendente") return p.tipo_cadastro !== "professor";
-        return pp.indexOf("aluno") >= 0;
+        if (p.tipo_cadastro === "professor" || pp.indexOf("professor") >= 0 || pp.indexOf("admin") >= 0) return false;
+        return p.status === "pendente" || pp.indexOf("aluno") >= 0;
       });
       tela.innerHTML = "<h1><em>Alunos</em></h1><p class=\"sub\">" + ps.length + " aluno(s). Professores ficam na aba Professores.</p>" +
         '<div class="busca"><input id="a-busca" placeholder="Buscar por nome"><select id="a-status"><option value="">Todos os status</option>' +
@@ -782,9 +798,11 @@
       sb.from("cobrancas").select("valor_final_centavos,status,vencimento,pago_em"),
       sb.from("reservas").select("aluno_id, aulas!inner(inicio)").eq("status", "presente").gte("aulas.inicio", h14),
       sb.from("leads").select("status,created_at").gte("created_at", mes),
-      sb.from("reservas").select("aula_id, aulas!inner(inicio, turmas(nome))").eq("status", "presente").gte("aulas.inicio", mes)
+      sb.from("reservas").select("aula_id, aulas!inner(inicio, turmas(nome))").eq("status", "presente").gte("aulas.inicio", mes),
+      carregarEquipe()
     ]).then(function (r) {
-      var ps = chk(r[0]), cs = chk(r[1]), rec = chk(r[2]), leads = chk(r[3]), presMes = chk(r[4]);
+      var eq = r[5];
+      var ps = chk(r[0]).filter(function (p) { return !eq.eh(p.id); }), cs = chk(r[1]), rec = chk(r[2]), leads = chk(r[3]), presMes = chk(r[4]);
       var ativos = ps.filter(function (p) { return p.status === "ativo"; });
       var pend = ps.filter(function (p) { return p.status === "pendente"; }).length;
       var novos = ps.filter(function (p) { return p.aprovado_em && p.aprovado_em.slice(0, 10) >= mes; }).length;
@@ -1802,9 +1820,11 @@
     return Promise.all([
       sb.from("eventos").select("*").eq("id", evId).single().then(chk),
       sb.from("evento_opcoes").select("*").eq("evento_id", evId).order("ordem").then(chk),
-      sb.from("evento_inscricoes").select("*").eq("evento_id", evId).order("created_at", { ascending: true }).then(chk)
+      sb.from("evento_inscricoes").select("*").eq("evento_id", evId).order("created_at", { ascending: true }).then(chk),
+      carregarEquipe()
     ]).then(function (r) {
-      var ev = r[0], ops = r[1], ins = r[2];
+      var ev = r[0], ops = r[1], ins = r[2], eq = r[3];
+      ins.forEach(function (i) { i.ehProf = (i.aluno_id && eq.eh(i.aluno_id)) || (i.cpf && eq.cpfs[i.cpf]); });
       var extras = ((ev.campos || {}).extras || []);
       var exSel = extras.filter(function (x) { return x.tipo === "opcoes"; })[0];
       if (exSel && !f.x && S.modo === "professor" && /professor/i.test(exSel.rotulo)) {
@@ -1845,6 +1865,7 @@
         if (f.busca && U.soDigitos(f.busca).length >= 3 && (i.cpf || "").indexOf(U.soDigitos(f.busca)) < 0 && (i.nome || "").toLowerCase().indexOf(f.busca.toLowerCase()) < 0) return false;
         return true;
       }).sort(function (a, b) { return (a.nome || "").localeCompare(b.nome || "", "pt-BR"); });
+      var listaAl = lista.filter(function (i) { return !i.ehProf; }), listaPr = lista.filter(function (i) { return i.ehProf; });
 
       tela.innerHTML = '<p style="margin:0 0 6px"><a href="#/eventos" style="color:var(--cinza)">← Eventos</a></p>' +
         "<h1>" + esc(ev.titulo) + "</h1><p class=\"sub\">" + esc(U.dataHora(ev.inicio)) + (ev.endereco ? " · " + esc(ev.endereco) : "") + " · pagamento " + (ev.pagamento === "online" ? "online (Pix, cartão e boleto)" : "na academia") + "</p>" +
@@ -1872,9 +1893,14 @@
             return '<option value="' + o[0] + '"' + (o[0] === f.st ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
           (ops.length ? '<select class="sel" id="evf-op"><option value="">Todas as opções</option>' + ops.map(function (o) { return '<option value="' + o.id + '"' + (o.id === f.op ? " selected" : "") + ">" + esc(o.nome) + "</option>"; }).join("") + "</select>" : "") +
           (exSel ? '<select class="sel" id="evf-x"><option value="">' + esc(exSel.rotulo) + ": todos</option>" + exSel.opcoes.map(function (o) { return "<option" + (o === f.x ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select>" : "") +
-        "</div><div class=\"busca\" style=\"margin:0 0 8px;align-items:center\"><span style=\"color:var(--cinza);font-size:14px\">" + lista.length + " na lista</span>" +
+        "</div><div class=\"busca\" style=\"margin:0 0 8px;align-items:center\"><span style=\"color:var(--cinza);font-size:14px\">" + listaAl.length + " aluno(s)" + (listaPr.length ? " · " + listaPr.length + " professor(es)" : "") + "</span>" +
           (lista.some(function (i) { return i.status === "pendente"; }) ? '<button class="btn-mini ' + (lote ? "" : "claro") + '" id="ev-lote">' + (lote ? "Sair da confirmação em lote" : "Confirmar pagamentos em lote") + "</button>" : "") + "</div>" +
-        (lista.length ? '<div class="lista">' + lista.map(function (i) {
+        (listaAl.length ? '<div class="lista">' + listaAl.map(cartaoIns).join("") + "</div>" : '<div class="vazio-box">Nenhum aluno nesse filtro.</div>') +
+        (listaPr.length ? '<h2>Professores inscritos</h2><p style="margin:-6px 0 12px;color:var(--cinza);font-size:14px">Ficam fora da lista de alunos. Entram nos totais do evento.</p><div class="lista">' + listaPr.map(cartaoIns).join("") + "</div>" : "") +
+        (lote ? '<div class="lote-barra"><b id="lote-n">0 selecionado(s)</b><select class="sel" id="lote-f"><option value="pix_direto">Pix direto</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão na maquininha</option><option value="outro">Outro</option></select>' +
+          '<button class="btn-mini claro" id="lote-todos">Marcar todos da lista</button><button class="btn-mini verde" id="lote-ok">Confirmar pagamento</button></div>' : "");
+
+      function cartaoIns(i) {
           var resp = i.respostas || {};
           var ex = extras.map(function (x) { return resp[x.id] ? esc(x.rotulo) + ": " + esc(resp[x.id]) : ""; }).filter(Boolean).join(" · ");
           var caixa = lote && i.status === "pendente" ? '<input type="checkbox" class="ev-chk" data-lote="' + i.id + '"' + (i.valor_centavos == null ? ' disabled title="Valor a confirmar: confirme pelo botão Pagou"' : "") + "> " : "";
@@ -1888,9 +1914,7 @@
             (i.status === "pendente" ? ' <button class="btn-mini verde" data-baixa-ev="' + i.id + '">Pagou ✓</button>' : "") +
             (i.status === "pendente" && i.whatsapp && i.valor_centavos ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(i.whatsapp, "Oi, " + primeiroNome(i.nome) + "! Sua inscrição no " + ev.titulo + " está com o pagamento pendente (" + U.reais(i.valor_centavos) + "). Pague por Pix, cartão ou boleto neste link: " + link + "?i=" + i.codigo) + '">Cobrar</a>' : "") +
             ' <button class="btn-mini claro" data-ins="' + i.id + '">Detalhes</button></div></div>';
-        }).join("") + "</div>" : '<div class="vazio-box">Ninguém nesse filtro.</div>') +
-        (lote ? '<div class="lote-barra"><b id="lote-n">0 selecionado(s)</b><select class="sel" id="lote-f"><option value="pix_direto">Pix direto</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão na maquininha</option><option value="outro">Outro</option></select>' +
-          '<button class="btn-mini claro" id="lote-todos">Marcar todos da lista</button><button class="btn-mini verde" id="lote-ok">Confirmar pagamento</button></div>' : "");
+      }
 
       function filtrar() {
         var p = new URLSearchParams(); p.set("e", evId);
