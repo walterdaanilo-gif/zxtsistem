@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar | Portal ZXT</title>
+  <meta name="description" content="Portal do aluno ZXT: agenda, check-in, mensalidades e graduação.">
+  <meta name="theme-color" content="#070707">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/assets/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/assets/icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,600;1,700;1,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/portal.css">
+</head>
+<body class="portal">
+  <main class="auth">
+    <div class="auth-caixa">
+      <a href="/"><img class="auth-logo" src="/assets/logo-zxt-completo.png" alt="Zulu Xtreme Team" width="120" height="115"></a>
+      <h1>Portal <span style="color:var(--vermelho)">ZXT</span></h1>
+      <p class="sub">Agenda, check-in, mensalidades e graduação na palma da mão.</p>
+
+      <div class="abas" role="tablist">
+        <button class="aba" role="tab" id="aba-entrar" aria-selected="true">Entrar</button>
+        <button class="aba" role="tab" id="aba-cadastro" aria-selected="false">Criar conta</button>
+      </div>
+
+      <!-- ENTRAR -->
+      <form class="form" id="f-entrar" novalidate>
+        <div class="campo"><label for="e-email">E-mail</label><input id="e-email" type="email" autocomplete="email" required></div>
+        <div class="campo"><label for="e-senha">Senha</label><input id="e-senha" type="password" autocomplete="current-password" required></div>
+        <button class="btn btn-vermelho btn-bloco" type="submit">Entrar</button>
+        <button class="link" type="button" id="esqueci">Esqueci minha senha</button>
+      </form>
+
+      <!-- CADASTRO -->
+      <form class="form" id="f-cadastro" novalidate hidden>
+        <div class="grupo">
+          <p>Seus dados</p>
+          <div class="campo"><label for="c-nome">Nome completo</label><input id="c-nome" autocomplete="name" required></div>
+          <div class="linha2">
+            <div class="campo"><label for="c-email">E-mail</label><input id="c-email" type="email" autocomplete="email" required></div>
+            <div class="campo"><label for="c-whats">WhatsApp</label><input id="c-whats" type="tel" inputmode="tel" autocomplete="tel" placeholder="(84) 9 9999-9999" required></div>
+          </div>
+          <div class="linha2">
+            <div class="campo"><label for="c-nasc">Nascimento</label><input id="c-nasc" type="date" required></div>
+            <div class="campo"><label for="c-cpf">CPF</label><input id="c-cpf" inputmode="numeric" placeholder="000.000.000-00" required></div>
+          </div>
+          <div class="campo"><label for="c-senha">Crie uma senha <small>(mínimo 8 caracteres)</small></label><input id="c-senha" type="password" autocomplete="new-password" minlength="8" required></div>
+        </div>
+
+        <div class="grupo">
+          <p>Modalidades de interesse</p>
+          <div class="opcoes" id="c-mods"></div>
+        </div>
+
+        <div class="grupo">
+          <p>Saúde e emergência</p>
+          <div class="linha2">
+            <div class="campo"><label for="c-emerg-nome">Contato de emergência</label><input id="c-emerg-nome" placeholder="Nome" required></div>
+            <div class="campo"><label for="c-emerg-tel">Telefone dele(a)</label><input id="c-emerg-tel" type="tel" inputmode="tel" required></div>
+          </div>
+          <div class="campo"><label for="c-saude">Lesões ou condições de saúde <small>(deixe em branco se não tiver)</small></label><textarea id="c-saude" rows="2"></textarea></div>
+        </div>
+
+        <div class="grupo" id="g-resp" hidden>
+          <p>Responsável (menor de 18 anos)</p>
+          <div class="campo"><label for="r-nome">Nome do responsável</label><input id="r-nome"></div>
+          <div class="linha2">
+            <div class="campo"><label for="r-cpf">CPF do responsável</label><input id="r-cpf" inputmode="numeric"></div>
+            <div class="campo"><label for="r-whats">WhatsApp do responsável</label><input id="r-whats" type="tel" inputmode="tel"></div>
+          </div>
+          <label class="check"><input type="checkbox" id="r-aceite"> Sou o responsável legal e autorizo a participação do menor nos treinos, aceitando o termo de responsabilidade.</label>
+        </div>
+
+        <label class="check"><input type="checkbox" id="c-termo"> Li e aceito o <a href="#" data-texto="termo">termo de responsabilidade</a>.</label>
+        <label class="check"><input type="checkbox" id="c-priv"> Li e aceito a <a href="#" data-texto="privacidade">política de privacidade</a> (LGPD).</label>
+
+        <p class="erro" id="c-erro" role="alert"></p>
+        <button class="btn btn-vermelho btn-bloco" type="submit">Criar minha conta</button>
+        <p class="dica">Depois do cadastro, a equipe ZXT aprova seu acesso.</p>
+      </form>
+
+      <a class="voltar-site" href="/">Voltar ao site da ZXT</a>
+    </div>
+  </main>
+
+  <script src="/assets/vendor/supabase.min.js"></script>
+  <script src="/assets/portal-base.js"></script>
+  <script src="/assets/entrar.js"></script>
+</body>
+</html>

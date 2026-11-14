@@ -337,3 +337,6 @@ fieldset.campo { border: 0; margin: 0; }
   .hero .garras.dir { display: none; }
   .hero .garras.esq { width: 70vw; left: -20vw; bottom: -60px; opacity: .5; }
 }
+
+.so-desk { display: none; }
+@media (min-width: 600px) { .so-desk { display: inline-flex; } }

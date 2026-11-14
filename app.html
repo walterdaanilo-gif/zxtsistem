@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Portal ZXT</title>
+  <meta name="theme-color" content="#070707">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/assets/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/assets/icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,600;1,700;1,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/portal.css">
+</head>
+<body class="portal">
+  <header class="app-topo">
+    <div class="wrap">
+      <a class="marca" href="/app"><img src="/assets/logo-zxt.png" alt="ZXT" width="40" height="34"></a>
+      <div class="troca-papel" id="troca-papel"></div>
+      <div class="quem"><b id="quem-nome">...</b><span id="quem-papel"></span></div>
+      <button class="sair" id="sair" title="Sair">Sair</button>
+    </div>
+  </header>
+  <div class="app-corpo">
+    <nav class="nav" id="nav" aria-label="Menu do portal"></nav>
+    <main class="tela" id="tela"><p class="carregando">Carregando...</p></main>
+  </div>
+
+  <script src="/assets/vendor/supabase.min.js"></script>
+  <script src="/assets/vendor/qrcode.js"></script>
+  <script src="/assets/portal-base.js"></script>
+  <script src="/assets/portal.js"></script>
+</body>
+</html>
