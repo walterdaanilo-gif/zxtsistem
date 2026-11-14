@@ -24,7 +24,7 @@
 
   var MENUS = {
     aluno: [["comunidade", "Comunidade", "comunidade"], ["inicio", "Início", "casa"], ["agenda", "Agenda", "agenda"], ["checkin", "Check-in", "qr"], ["financeiro", "Mensalidades", "dinheiro"], ["graduacao", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
-    professor: [["chamada", "Chamada", "chamada"], ["aprovacoes", "Aprovações", "aprovar"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["finturmas", "Financeiro", "dinheiro"], ["graduacoes", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
+    professor: [["chamada", "Chamada", "chamada"], ["aprovacoes", "Aprovações", "aprovar"], ["comunidade", "Comunidade", "comunidade"], ["alunos", "Alunos", "grupo"], ["cobrancas", "Financeiro", "dinheiro"], ["finturmas", "Minhas turmas", "grupo"], ["graduacoes", "Graduação", "faixa"], ["perfil", "Perfil", "perfil"]],
     admin: [["painel", "Painel", "painel"], ["aprovacoes", "Aprovações", "aprovar"], ["alunos", "Alunos", "grupo"], ["professores", "Professores", "professor"], ["comunidade", "Comunidade", "comunidade"], ["chamada", "Chamada", "chamada"], ["cobrancas", "Financeiro", "dinheiro"], ["leads", "Experimentais", "funil"], ["graduacoes", "Graduação", "faixa"], ["qr", "QR recepção", "qr"], ["config", "Configurações", "config"], ["perfil", "Meu perfil", "perfil"]]
   };
   var NOME_PAPEL = { aluno: "Aluno", professor: "Professor", admin: "Administração" };
@@ -877,15 +877,16 @@
       var planos = r[0], cs = r[1];
       function modsDo(p) { return (p.plano_modalidades || []).map(function (x) { return x.modalidades.nome; }); }
       var lista = cs.filter(function (c) { return filtro === "todas" || (filtro === "abertas" ? (c.status === "em_aberto" || c.status === "atrasado") : c.status === filtro); });
-      tela.innerHTML = "<h1><em>Financeiro</em></h1><p class=\"sub\">Planos, mensalidades e baixa manual. Só a administração vê esta área.</p>" +
-        "<h2>Planos</h2>" + (planos.length ? '<div class="lista">' + planos.map(function (p) {
+      var ehAdmin = S.modo === "admin";
+      tela.innerHTML = "<h1><em>Financeiro</em></h1><p class=\"sub\">" + (ehAdmin ? "Planos, mensalidades e baixa manual." : "Mensalidades de todos os alunos: dê baixa no que foi pago na recepção e cobre quem está em aberto.") + "</p>" +
+        (!ehAdmin ? "" : "<h2>Planos</h2>" + (planos.length ? '<div class="lista">' + planos.map(function (p) {
           var ms = modsDo(p);
           var regraT = p.turmas_livres ? "todas as turmas" : p.max_turmas ? p.max_turmas + (p.max_turmas > 1 ? " turmas" : " turma") : "turmas definidas pela equipe";
           return '<div class="item"><div><h3>' + esc(p.nome) + "</h3><p>" + U.reais(p.valor_centavos) + " · " + p.periodicidade + " · " + regraT + " + sparring" +
             (p.aulas_semana ? " · limite de " + p.aulas_semana + " aula(s) por semana" : "") + (ms.length ? " · só " + esc(ms.join(", ")) : "") + "</p></div>" +
             '<div class="acoes">' + tagStatus(p.ativo ? "ativo" : "inativo") + ' <button class="btn-mini claro" data-editar-plano="' + p.id + '">Editar</button></div></div>';
         }).join("") + "</div>" : '<div class="vazio-box">Nenhum plano. Cadastre com os valores da tabela vigente.</div>') +
-        '<div class="busca" style="margin-top:10px"><button class="btn-mini claro" id="novo-plano">Novo plano</button><button class="btn-mini claro" id="gerar">Gerar mensalidades do mês</button></div>' +
+        '<div class="busca" style="margin-top:10px"><button class="btn-mini claro" id="novo-plano">Novo plano</button><button class="btn-mini claro" id="gerar">Gerar mensalidades do mês</button></div>') +
         "<h2>Cobranças</h2>" +
         '<div class="busca"><select id="cb-f">' + [["abertas", "Em aberto e atrasadas"], ["atrasado", "Só atrasadas"], ["pago", "Pagas"], ["todas", "Todas"]].map(function (o) {
           return '<option value="' + o[0] + '"' + (o[0] === filtro ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></div>" +
@@ -897,7 +898,7 @@
               (c.profiles && c.profiles.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(c.profiles.whatsapp, "Oi, " + primeiroNome(nome) + "! Passando pra lembrar da mensalidade da ZXT de " + U.reais(c.valor_final_centavos) + " com vencimento em " + U.data(c.vencimento) + ". Qualquer dúvida, chama aqui 🥊") + '">Cobrar no WhatsApp</a>' : "") : "") + "</div></div>";
         }).join("") + "</div>" : '<div class="vazio-box">Nada nesse filtro.</div>');
       $("#cb-f").onchange = function () { location.hash = "#/cobrancas?st=" + this.value; };
-      $("#gerar").onclick = function () {
+      if (ehAdmin) $("#gerar").onclick = function () {
         sb.rpc("gerar_mensalidades").then(function (x) { if (x.error) return U.erro(x.error); U.toast(x.data + " mensalidade(s) gerada(s)"); rotear(); });
       };
       function editorPlano(p) {
@@ -933,7 +934,7 @@
             }]]);
         });
       }
-      $("#novo-plano").onclick = function () { editorPlano(); };
+      if (ehAdmin) $("#novo-plano").onclick = function () { editorPlano(); };
       tela.onclick = function (e) {
         var ep = e.target.closest("[data-editar-plano]");
         if (ep) return editorPlano(planos.filter(function (p) { return p.id === ep.getAttribute("data-editar-plano"); })[0]);
@@ -1479,7 +1480,7 @@
               return { st: l.length ? "pago" : "sem", c: l[0], soma: 0, n: 0 };
             }
             if (!turmas.length) { tela.innerHTML = '<h1>Financeiro das <em>turmas</em></h1><div class="vazio-box">Você ainda não é o professor responsável por nenhuma turma e não há alunos do Plano Plus. Peça à administração para definir suas turmas.</div>'; return; }
-            var html = '<h1>Financeiro das <em>turmas</em></h1><p class="sub">Situação das mensalidades dos alunos das suas turmas e dos alunos do Plano Plus. A baixa de pagamento em dinheiro é feita pela administração.</p>' +
+            var html = '<h1>Financeiro das <em>turmas</em></h1><p class="sub">Situação das mensalidades dos alunos das suas turmas e dos alunos do Plano Plus. Para dar baixa em pagamento feito na recepção, use a aba Financeiro.</p>' +
               (semTurmaPropria ? '<p class="dica" style="margin:-12px 0 16px">Você ainda não tem turma própria definida: aparecem só os alunos do Plano Plus.</p>' : "") +
               '<div class="filtros"><button class="filtro" data-pend="0" aria-pressed="' + !soPend + '">Todos os alunos</button><button class="filtro" data-pend="1" aria-pressed="' + soPend + '">Só pendentes</button></div>';
             turmas.forEach(function (t) {

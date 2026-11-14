@@ -4,9 +4,9 @@ declare
   admin_id uuid := (select user_id from user_roles where papel = 'admin' limit 1);
   b uuid := gen_random_uuid(); pr uuid := gen_random_uuid(); pl uuid := gen_random_uuid(); n uuid := gen_random_uuid();
   basico uuid; pro uuid; plus uuid;
-  t1 uuid := (select id from turmas where nome = 'Muay Thai · Turma 1');
-  t2 uuid := (select id from turmas where nome = 'Muay Thai · Turma 2');
-  bx uuid := (select id from turmas where nome = 'Boxe · Turma 2');
+  t1 uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'muay-thai') order by hora_inicio desc offset 1 limit 1);
+  t2 uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'muay-thai') order by hora_inicio desc offset 0 limit 1);
+  bx uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'boxe') order by nome, hora_inicio limit 1);
   sp uuid := (select id from turmas where sparring limit 1);
   seg date := date_trunc('week', now() + interval '80 days')::date;
   a1 uuid; a2 uuid; ab uuid; asp uuid; aovivo uuid;

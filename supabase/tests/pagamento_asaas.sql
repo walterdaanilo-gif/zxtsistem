@@ -3,7 +3,7 @@ do $$
 declare
   a uuid := gen_random_uuid(); pf uuid := gen_random_uuid();
   basico uuid := (select id from planos where max_turmas = 1 and not turmas_livres order by valor_centavos limit 1);
-  t1 uuid := (select id from turmas where nome = 'Muay Thai · Turma 1');
+  t1 uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'muay-thai') order by hora_inicio desc offset 1 limit 1);
   r jsonb := '{}'::jsonb; ok boolean; res text;
 begin
   insert into auth.users (id, email, aud, role) values (a, 'pg@zxt.test', 'authenticated', 'authenticated'), (pf, 'pgp@zxt.test', 'authenticated', 'authenticated');

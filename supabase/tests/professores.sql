@@ -3,8 +3,8 @@ do $$
 declare
   admin_id uuid := (select user_id from user_roles where papel = 'admin' limit 1);
   pf uuid := gen_random_uuid(); al uuid := gen_random_uuid();
-  t1 uuid := (select id from turmas where nome = 'Muay Thai · Turma 1');
-  t2 uuid := (select id from turmas where nome = 'Muay Thai · Turma 2');
+  t1 uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'muay-thai') order by hora_inicio desc offset 1 limit 1);
+  t2 uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'muay-thai') order by hora_inicio desc offset 0 limit 1);
   mt uuid := (select id from modalidades where slug = 'muay-thai');
   n12 uuid := (select id from graduacao_niveis where nome like '12º Khan%');
   r jsonb := '{}'::jsonb; ok boolean; n int;

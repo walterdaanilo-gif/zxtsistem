@@ -2,7 +2,7 @@
 do $$
 declare
   pf uuid := gen_random_uuid(); al uuid := gen_random_uuid(); outro uuid := gen_random_uuid();
-  basico uuid; t1 uuid := (select id from turmas where nome = 'Muay Thai · Turma 1'); t2 uuid := (select id from turmas where nome = 'Muay Thai · Turma 2');
+  basico uuid; t1 uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'muay-thai') order by hora_inicio desc offset 1 limit 1); t2 uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'muay-thai') order by hora_inicio desc offset 0 limit 1);
   r jsonb := '{}'::jsonb; ok boolean;
 begin
   insert into planos (nome, valor_centavos, max_turmas) values ('T básico', 1, 1) returning id into basico;
@@ -19,7 +19,7 @@ begin
   begin perform definir_turmas_aluno(al, array[t1, t2]); ok := false; exception when others then ok := sqlerrm like '%dá direito a 1 turma%'; end;
   r := r || jsonb_build_object('4_respeita_limite_do_plano', ok);
   begin update profiles set status = 'inativo' where id = al; exception when others then null; end;
-  r := r || jsonb_build_object('5_professor_nao_ve_financeiro', (select count(*) from assinaturas where aluno_id = al) = 0);
+  r := r || jsonb_build_object('5_professor_ve_financeiro_do_aluno', (select count(*) from assinaturas where aluno_id = al) = 1);
   execute 'reset role';
   r := r || jsonb_build_object(
     '1_professor_edita_dados', (select nome = 'Aluno Editado' and saude_obs = 'Joelho direito' from profiles where id = al),

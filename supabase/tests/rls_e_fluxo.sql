@@ -16,7 +16,7 @@ begin
   insert into user_roles values (p, 'professor');
   update profiles set status = 'ativo' where id = p;
   insert into planos (nome, valor_centavos) values ('Plano teste', 15000) returning id into plano;
-  select id into turma from turmas where nome = 'Muay Thai · Turma 1';
+  select id into turma from turmas where nome = 'Muay Thai · Turma 1' and ativa;
   -- aula acontecendo agora para testar check-in
   insert into aulas (turma_id, data, inicio, fim) values (turma, hoje_fortaleza() + 400, now() - interval '5 min', now() + interval '55 min') returning id into aula;
   insert into aulas (turma_id, data, inicio, fim) values (turma, hoje_fortaleza() + 401, now() + interval '1 day', now() + interval '1 day 1 hour') returning id into futura;
@@ -67,7 +67,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', p, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   r := r || jsonb_build_object(
-    '14_professor_nao_ve_financeiro', (select count(*) from cobrancas) = 0 and (select count(*) from assinaturas) = 0 and (select count(*) from despesas) = 0,
+    '14_professor_nao_ve_despesas', (select count(*) from despesas) = 0,
     '15_professor_ve_presenca', (select count(*) from reservas where aula_id = aula and status = 'presente') = 1,
     '16_professor_ve_alunos', (select count(*) from profiles where id in (a, b)) = 2);
   perform salvar_observacao_professor(a, 'Base boa, melhorar guarda');

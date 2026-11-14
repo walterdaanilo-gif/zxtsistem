@@ -3,7 +3,7 @@ do $$
 declare
   admin_id uuid := (select user_id from user_roles where papel = 'admin' limit 1);
   a uuid := gen_random_uuid(); b uuid := gen_random_uuid(); c uuid := gen_random_uuid();
-  pro uuid; t1 uuid := (select id from turmas where nome = 'Muay Thai · Turma 1'); bx uuid := (select id from turmas where nome = 'Boxe · Turma 2');
+  pro uuid; t1 uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'muay-thai') order by hora_inicio desc offset 1 limit 1); bx uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'boxe') order by nome, hora_inicio limit 1);
   mes date := date_trunc('month', hoje_fortaleza())::date; r jsonb := '{}'::jsonb; ok boolean; n int;
 begin
   insert into planos (nome, valor_centavos, max_turmas) values ('T pro', 12000, 2) returning id into pro;
@@ -21,7 +21,7 @@ begin
   execute 'set local role authenticated';
   perform aprovar_aluno_atual(a, pro, array[t1, bx], 10, true, null);                       -- em dia
   perform aprovar_aluno_atual(b, pro, array[t1], 5, false, hoje_fortaleza() - 9);            -- atrasado
-  begin perform aprovar_aluno_atual(c, pro, array[t1, bx, (select id from turmas where nome = 'Boxe · Turma 1')], 10, true, null); ok := false;
+  begin perform aprovar_aluno_atual(c, pro, array[t1, bx, (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'muay-thai') order by hora_inicio limit 1)], 10, true, null); ok := false;
   exception when others then ok := sqlerrm like '%dá direito a 2 turma%'; end;
   r := r || jsonb_build_object('2_respeita_limite_do_plano', ok);
   execute 'reset role';

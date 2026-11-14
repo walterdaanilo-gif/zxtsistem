@@ -3,7 +3,7 @@ do $$
 declare
   p1 uuid := gen_random_uuid(); p2 uuid := gen_random_uuid();
   minha uuid := gen_random_uuid(); outra uuid := gen_random_uuid(); plus_a uuid := gen_random_uuid(); profcad uuid := gen_random_uuid();
-  t1 uuid := (select id from turmas where nome = 'Muay Thai · Turma 1'); bx uuid := (select id from turmas where nome = 'Boxe · Turma 2');
+  t1 uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'muay-thai') order by hora_inicio desc offset 1 limit 1); bx uuid := (select id from turmas where ativa and not coletiva and modalidade_id = (select id from modalidades where slug = 'boxe') order by nome, hora_inicio limit 1);
   basico uuid; plus uuid; r jsonb := '{}'::jsonb; ok boolean;
 begin
   insert into planos (nome, valor_centavos, max_turmas) values ('T b', 7000, 1) returning id into basico;
@@ -39,7 +39,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', p2, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   r := r || jsonb_build_object('6_plus_aparece_para_todos_os_professores', (select count(*) from cobrancas where aluno_id = plus_a) = 1,
-                               '7_nao_ve_financeiro_de_aluno_de_outro', (select count(*) from assinaturas where aluno_id = minha) = 0);
+                               '7_ve_financeiro_de_qualquer_aluno', (select count(*) from assinaturas where aluno_id = minha) = 1);
   perform aprovar_aluno(outra, basico, array[bx], 10);
   execute 'reset role';
   r := r || jsonb_build_object('8_dono_da_turma_aprova', (select status from profiles where id = outra) = 'ativo');
