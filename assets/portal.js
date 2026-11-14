@@ -160,6 +160,19 @@
   }
 
   // =================================================================== ALUNO
+  function cartaoPlano(planos) {
+    if (!planos || !planos.length) return "";
+    return planos.map(function (p) {
+      var lim = p.aulas_semana, usadas = p.usadas || 0;
+      var pct = lim ? Math.min(100, Math.round(usadas / lim * 100)) : 0;
+      return '<div class="cartao" style="margin-bottom:12px"><p style="margin:0 0 6px;color:var(--cinza);font-size:14px">Seu plano</p>' +
+        '<h3 style="margin:0 0 6px;font-family:var(--display);font-style:italic;text-transform:uppercase;font-size:22px">' + esc(p.plano) + "</h3>" +
+        '<p style="margin:0 0 10px;color:var(--cinza);font-size:14px">' + esc(p.modalidades.length ? p.modalidades.join(", ") : "Todas as modalidades") + " · sparring de sexta liberado</p>" +
+        (lim ? '<p style="margin:0 0 6px"><b>' + usadas + " de " + lim + "</b> aulas usadas nesta semana (seg a dom)</p><div class=\"barra\"><i style=\"width:" + pct + '%"></i></div>'
+             : "<p style=\"margin:0\"><b>Aulas livres</b> na semana</p>") + "</div>";
+    }).join("");
+  }
+
   function minhasMatriculas() {
     return sb.from("matriculas").select("turma_id, turmas(id,nome,modalidade_id,coletiva,sparring,dias_semana,hora_inicio, modalidades(nome,slug))").eq("aluno_id", S.user.id).then(chk);
   }
@@ -171,8 +184,10 @@
       sb.from("reservas").select("id, aulas!inner(inicio)", { count: "exact", head: true }).eq("aluno_id", S.user.id).eq("status", "presente").gte("aulas.inicio", inicioMes()),
       sb.from("cobrancas").select("id,descricao,vencimento,valor_final_centavos,status").eq("aluno_id", S.user.id).in("status", ["em_aberto", "atrasado"]).order("vencimento"),
       sb.from("graduacoes_aluno").select("data, grau, graduacao_niveis(nome,cor), modalidades(nome)").eq("aluno_id", S.user.id).order("data", { ascending: false }),
-      sb.from("reservas").select("id, aulas!inner(inicio)", { count: "exact", head: true }).eq("aluno_id", S.user.id).eq("status", "presente")
+      sb.from("reservas").select("id, aulas!inner(inicio)", { count: "exact", head: true }).eq("aluno_id", S.user.id).eq("status", "presente"),
+      sb.rpc("meu_plano")
     ]).then(function (r) {
+      var planoHtml = cartaoPlano(r[5].data);
       var prox = chk(r[0]).sort(function (a, b) { return a.aulas.inicio < b.aulas.inicio ? -1 : 1; });
       var mes = r[1].count || 0, total = r[4].count || 0;
       var abertas = chk(r[2]), grads = chk(r[3]);
@@ -181,7 +196,7 @@
       var linkInd = location.origin + "/entrar?ref=" + S.perfil.codigo_indicacao;
       tela.innerHTML =
         "<h1>Bora treinar, <em>" + esc(primeiroNome(S.perfil.nome)) + "</em> 🥊</h1>" +
-        '<p class="sub">Disciplina também é respeito por você.</p>' +
+        '<p class="sub">Disciplina também é respeito por você.</p>' + planoHtml +
         '<div class="kpis">' +
         '<div class="kpi"><b>' + mes + "</b><span>Treinos no mês</span></div>" +
         '<div class="kpi"><b>' + total + "</b><span>Treinos no total</span></div>" +
@@ -212,7 +227,10 @@
 
   VIEWS.agenda = function () {
     var agora = new Date(), ate = new Date(agora.getTime() + 8 * 864e5);
-    return minhasMatriculas().then(function (mats) {
+    return Promise.all([minhasMatriculas(), sb.rpc("meu_plano")]).then(function (pr) {
+      var mats = pr[0], planoHtml = cartaoPlano(pr[1].data);
+      var planos = pr[1].data || [];
+      var cobre = function (mod) { return !planos.length || planos.some(function (p) { return !p.modalidade_ids.length || p.modalidade_ids.indexOf(mod) >= 0; }); };
       var turmasMinhas = mats.map(function (m) { return m.turma_id; });
       var modsMinhas = mats.map(function (m) { return m.turmas.modalidade_id; });
       return sb.from("aulas").select("id,inicio,fim,status,turma_id, turmas(nome,coletiva,sparring,modalidade_id)")
@@ -224,7 +242,7 @@
           return (ids.length ? sb.from("reservas").select("aula_id,status").eq("aluno_id", S.user.id).in("aula_id", ids).then(chk) : Promise.resolve([]))
             .then(function (res) {
               var st = {}; res.forEach(function (x) { st[x.aula_id] = x.status; });
-              var dia = "", html = "<h1>Minha <em>agenda</em></h1><p class=\"sub\">Próximos 7 dias das suas turmas e do sparring de sexta. Cancelamento até 2h antes.</p>";
+              var dia = "", html = "<h1>Minha <em>agenda</em></h1><p class=\"sub\">Próximos 7 dias das suas turmas e do sparring de sexta. Cancelamento até 2h antes.</p>" + planoHtml;
               if (!mats.length) html += '<div class="vazio-box" style="margin-bottom:16px">Você ainda não está matriculado em nenhuma turma. Fale com a recepção.</div>';
               if (!aulas.length) html += '<div class="vazio-box">Nenhuma aula nos próximos dias.</div>';
               html += '<div class="lista">';
@@ -235,6 +253,7 @@
                 var botao = cancelada ? tagStatus("cancelada")
                   : (s === "reservada" || s === "espera") ? tagStatus(s) + ' <button class="btn-mini claro" data-cancelar="' + a.id + '">Cancelar</button>'
                   : s === "presente" ? tagStatus("presente")
+                  : (!a.turmas.coletiva && !cobre(a.turmas.modalidade_id)) ? '<span class="tag neutro">Fora do plano</span>'
                   : '<button class="btn-mini" data-reservar="' + a.id + '">Reservar</button>';
                 html += '<div class="item' + (s === "reservada" ? " destaque" : "") + '"><div><h3>' + U.hora(a.inicio) + " · " + esc(a.turmas.nome) + "</h3><p>" +
                   (a.turmas.sparring ? "Treino coletivo de toda a equipe" : "Até " + U.hora(a.fim)) + "</p></div><div class=\"acoes\">" + botao + "</div></div>";
@@ -419,6 +438,15 @@
             '<button class="btn-mini claro" data-obs="' + id + '" title="Observação">Obs.</button></div></div>';
         }).join("") : '<p class="vazio">Nenhum aluno matriculado ou com reserva nessa aula.</p>') + "</div>";
       $("#voltar").onclick = function () { VIEWS.chamada(); };
+      ids.forEach(function (id) {
+        if (t.coletiva) return;
+        sb.rpc("alerta_plano", { p_aluno: id, p_aula: aula.id }).then(function (x) {
+          var st = res[id] && res[id].status;
+          if (!x.data || st === "presente" || st === "reservada") return;
+          var el = tela.querySelector('[data-p="' + id + '"]');
+          if (el) el.closest(".chamada-linha").querySelector("div").insertAdjacentHTML("beforeend", '<p style="margin:4px 0 0;color:#f2a20c;font-size:13px">Acima do plano: ' + esc(x.data) + "</p>");
+        });
+      });
       function marcar(id, presente) {
         var sp = tela.querySelector('[data-sp="' + id + '"]');
         sb.rpc("marcar_presenca", { p_aula: aula.id, p_aluno: id, p_presente: presente, p_sparring: !!(sp && sp.checked) }).then(function (x) {
@@ -556,8 +584,8 @@
   VIEWS.aprovacoes = function () {
     return Promise.all([
       sb.from("profiles").select("*").eq("status", "pendente").order("created_at").then(chk),
-      sb.from("planos").select("id,nome,valor_centavos,periodicidade").eq("ativo", true).order("nome").then(chk),
-      sb.from("turmas").select("id,nome").eq("ativa", true).order("nome").then(chk)
+      sb.from("planos").select("id,nome,valor_centavos,periodicidade,aulas_semana, plano_modalidades(modalidade_id)").eq("ativo", true).order("nome").then(chk),
+      sb.from("turmas").select("id,nome,modalidade_id,coletiva").eq("ativa", true).eq("coletiva", false).order("nome").then(chk)
     ]).then(function (r) {
       var ps = r[0], planos = r[1], turmas = r[2];
       tela.innerHTML = "<h1><em>Aprovações</em></h1><p class=\"sub\">" + ps.length + " cadastro(s) aguardando. Aprove escolhendo plano e turma.</p>" +
@@ -577,19 +605,31 @@
         var a = e.target.closest("[data-aprovar]"), rc = e.target.closest("[data-recusar]");
         if (a) {
           var id = a.getAttribute("data-aprovar");
-          modal("Aprovar cadastro",
+          var fm = modal("Aprovar cadastro",
             '<div class="campo"><label for="ap-plano">Plano</label><select class="sel" id="ap-plano"><option value="">Sem plano por enquanto</option>' +
-            planos.map(function (pl) { return '<option value="' + pl.id + '">' + esc(pl.nome) + " · " + U.reais(pl.valor_centavos) + " · " + pl.periodicidade + "</option>"; }).join("") + "</select>" +
+            planos.map(function (pl) { return '<option value="' + pl.id + '">' + esc(pl.nome) + " · " + U.reais(pl.valor_centavos) + " · " + (pl.aulas_semana ? pl.aulas_semana + "x/sem" : "livre") + "</option>"; }).join("") + "</select>" +
             (planos.length ? "" : '<small>Nenhum plano cadastrado ainda. Cadastre em Financeiro.</small>') + "</div>" +
             '<div class="campo" style="margin-top:14px"><label>Turmas</label>' + turmas.map(function (t) {
               return '<label class="check"><input type="checkbox" name="ap-t" value="' + t.id + '"> ' + esc(t.nome) + "</label>"; }).join("") + "</div>" +
-            '<div class="campo" style="margin-top:14px"><label for="ap-dia">Dia de vencimento</label><input id="ap-dia" type="number" min="1" max="28" value="10"></div>',
+            '<div class="campo" style="margin-top:14px"><label for="ap-dia">Dia de vencimento</label><input id="ap-dia" type="number" min="1" max="28" value="10"></div>' +
+            '<p style="color:var(--cinza);font-size:13px;margin:10px 0 0">O sparring de sexta é liberado para todos. Turmas fora das modalidades do plano ficam bloqueadas.</p>',
             [["Cancelar", null, "claro"], ["Aprovar", function (f) {
               var ts = U.$$('input[name="ap-t"]:checked', f).map(function (i) { return i.value; });
               if (!ts.length) { U.toast("Escolha pelo menos uma turma.", "erro"); return false; }
               return sb.rpc("aprovar_aluno", { p_aluno: id, p_plano: f.querySelector("#ap-plano").value || null, p_turmas: ts, p_dia_vencimento: parseInt(f.querySelector("#ap-dia").value, 10) || 10 })
                 .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Aprovado. Bem-vindo à família ZxT 🥊"); montarMenu(); rotear(); });
             }, "verde"]]);
+          var turmaMod = {}; turmas.forEach(function (t) { turmaMod[t.id] = t.modalidade_id; });
+          var filtrarTurmas = function () {
+            var pl = planos.filter(function (x) { return x.id === fm.querySelector("#ap-plano").value; })[0];
+            var ok = pl ? (pl.plano_modalidades || []).map(function (x) { return x.modalidade_id; }) : [];
+            U.$$('input[name="ap-t"]', fm).forEach(function (i) {
+              var livre = !ok.length || ok.indexOf(turmaMod[i.value]) >= 0;
+              i.disabled = !livre; if (!livre) i.checked = false;
+              i.parentNode.style.opacity = livre ? 1 : .4;
+            });
+          };
+          fm.querySelector("#ap-plano").onchange = filtrarTurmas; filtrarTurmas();
         }
         if (rc) {
           var idr = rc.getAttribute("data-recusar");
@@ -606,14 +646,18 @@
   VIEWS.cobrancas = function () {
     var filtro = (location.hash.match(/st=(\w+)/) || [])[1] || "abertas";
     return Promise.all([
-      sb.from("planos").select("*").order("nome").then(chk),
+      sb.from("planos").select("*, plano_modalidades(modalidade_id, modalidades(nome))").order("nome").then(chk),
       sb.from("cobrancas").select("*, profiles!cobrancas_aluno_id_fkey(nome,whatsapp)").order("vencimento", { ascending: false }).limit(300).then(chk)
     ]).then(function (r) {
       var planos = r[0], cs = r[1];
+      function modsDo(p) { return (p.plano_modalidades || []).map(function (x) { return x.modalidades.nome; }); }
       var lista = cs.filter(function (c) { return filtro === "todas" || (filtro === "abertas" ? (c.status === "em_aberto" || c.status === "atrasado") : c.status === filtro); });
       tela.innerHTML = "<h1><em>Financeiro</em></h1><p class=\"sub\">Planos, mensalidades e baixa manual. Só a administração vê esta área.</p>" +
         "<h2>Planos</h2>" + (planos.length ? '<div class="lista">' + planos.map(function (p) {
-          return '<div class="item"><div><h3>' + esc(p.nome) + "</h3><p>" + U.reais(p.valor_centavos) + " · " + p.periodicidade + (p.aulas_semana ? " · " + p.aulas_semana + "x por semana" : " · livre") + "</p></div>" + tagStatus(p.ativo ? "ativo" : "inativo") + "</div>";
+          var ms = modsDo(p);
+          return '<div class="item"><div><h3>' + esc(p.nome) + "</h3><p>" + U.reais(p.valor_centavos) + " · " + p.periodicidade + " · " +
+            (p.aulas_semana ? p.aulas_semana + " aula(s) por semana" : "aulas livres") + " · " + esc(ms.length ? ms.join(", ") : "todas as modalidades") + "</p></div>" +
+            '<div class="acoes">' + tagStatus(p.ativo ? "ativo" : "inativo") + ' <button class="btn-mini claro" data-editar-plano="' + p.id + '">Editar</button></div></div>';
         }).join("") + "</div>" : '<div class="vazio-box">Nenhum plano. Cadastre com os valores da tabela vigente.</div>') +
         '<div class="busca" style="margin-top:10px"><button class="btn-mini claro" id="novo-plano">Novo plano</button><button class="btn-mini claro" id="gerar">Gerar mensalidades do mês</button></div>' +
         "<h2>Cobranças</h2>" +
@@ -630,21 +674,46 @@
       $("#gerar").onclick = function () {
         sb.rpc("gerar_mensalidades").then(function (x) { if (x.error) return U.erro(x.error); U.toast(x.data + " mensalidade(s) gerada(s)"); rotear(); });
       };
-      $("#novo-plano").onclick = function () {
-        modal("Novo plano", '<div class="campo"><label for="pl-n">Nome</label><input id="pl-n" placeholder="Ex.: Muay Thai 2x por semana"></div>' +
-          '<div class="linha2" style="margin-top:12px"><div class="campo"><label for="pl-v">Valor (R$)</label><input id="pl-v" inputmode="decimal" placeholder="0,00"></div>' +
-          '<div class="campo"><label for="pl-p">Periodicidade</label><select class="sel" id="pl-p"><option>mensal</option><option>trimestral</option><option>semestral</option><option>anual</option></select></div></div>' +
-          '<div class="campo" style="margin-top:12px"><label for="pl-a">Aulas por semana (vazio = livre)</label><input id="pl-a" type="number" min="1" max="14"></div>' +
-          '<p style="color:#f2a20c;font-size:13px;margin:12px 0 0">Use só valores da tabela vigente aprovada.</p>',
-          [["Cancelar", null, "claro"], ["Salvar", function (f) {
-            var v = Math.round(parseFloat(f.querySelector("#pl-v").value.replace(/\./g, "").replace(",", ".")) * 100);
-            var n = f.querySelector("#pl-n").value.trim();
-            if (!n || !(v >= 0)) { U.toast("Preencha nome e valor.", "erro"); return false; }
-            return sb.from("planos").insert({ nome: n, valor_centavos: v, periodicidade: f.querySelector("#pl-p").value, aulas_semana: parseInt(f.querySelector("#pl-a").value, 10) || null })
-              .then(function (x) { if (x.error) { U.erro(x.error); return false; } U.toast("Plano criado"); rotear(); });
-          }]]);
-      };
+      function editorPlano(p) {
+        p = p || { nome: "", valor_centavos: null, periodicidade: "mensal", aulas_semana: null, ativo: true, plano_modalidades: [] };
+        var marcadas = (p.plano_modalidades || []).map(function (x) { return x.modalidade_id; });
+        sb.from("modalidades").select("id,nome").eq("ativa", true).order("ordem").then(function (rm) {
+          var mods = rm.data || [];
+          modal(p.id ? "Editar plano" : "Novo plano",
+            '<div class="campo"><label for="pl-n">Nome</label><input id="pl-n" placeholder="Ex.: Muay Thai 2x por semana" value="' + esc(p.nome) + '"></div>' +
+            '<div class="linha2" style="margin-top:12px"><div class="campo"><label for="pl-v">Valor (R$)</label><input id="pl-v" inputmode="decimal" placeholder="0,00" value="' +
+              (p.valor_centavos != null ? (p.valor_centavos / 100).toFixed(2).replace(".", ",") : "") + '"></div>' +
+            '<div class="campo"><label for="pl-p">Periodicidade</label><select class="sel" id="pl-p">' + ["mensal", "trimestral", "semestral", "anual"].map(function (o) {
+              return "<option" + (o === p.periodicidade ? " selected" : "") + ">" + o + "</option>"; }).join("") + "</select></div></div>" +
+            '<div class="campo" style="margin-top:12px"><label for="pl-a">Aulas por semana</label><input id="pl-a" type="number" min="1" max="14" placeholder="Vazio = livre" value="' + (p.aulas_semana || "") + '">' +
+              "<small>Conta de segunda a domingo. Sparring de sexta não conta.</small></div>" +
+            '<div class="campo" style="margin-top:12px"><label>Modalidades incluídas</label>' + mods.map(function (m) {
+              return '<label class="check"><input type="checkbox" name="pl-m" value="' + m.id + '"' + (marcadas.indexOf(m.id) >= 0 ? " checked" : "") + "> " + esc(m.nome) + "</label>"; }).join("") +
+              "<small>Nenhuma marcada = todas as modalidades.</small></div>" +
+            (p.id ? '<label class="check" style="margin-top:12px"><input type="checkbox" id="pl-at"' + (p.ativo ? " checked" : "") + "> Plano ativo (aparece na aprovação)</label>" : "") +
+            '<p style="color:#f2a20c;font-size:13px;margin:12px 0 0">Use só valores da tabela vigente aprovada.</p>',
+            [["Cancelar", null, "claro"], ["Salvar", function (f) {
+              var v = Math.round(parseFloat(f.querySelector("#pl-v").value.replace(/\./g, "").replace(",", ".")) * 100);
+              var n = f.querySelector("#pl-n").value.trim();
+              if (!n || !(v >= 0)) { U.toast("Preencha nome e valor.", "erro"); return false; }
+              var dados = { nome: n, valor_centavos: v, periodicidade: f.querySelector("#pl-p").value, aulas_semana: parseInt(f.querySelector("#pl-a").value, 10) || null };
+              if (p.id) dados.ativo = f.querySelector("#pl-at").checked;
+              var ms = U.$$('input[name="pl-m"]:checked', f).map(function (i) { return i.value; });
+              var q = p.id ? sb.from("planos").update(dados).eq("id", p.id).select().single() : sb.from("planos").insert(dados).select().single();
+              return q.then(function (x) {
+                if (x.error) throw x.error;
+                return sb.from("plano_modalidades").delete().eq("plano_id", x.data.id).then(function (d) {
+                  if (d.error) throw d.error;
+                  return ms.length ? sb.from("plano_modalidades").insert(ms.map(function (m) { return { plano_id: x.data.id, modalidade_id: m }; })).then(function (i) { if (i.error) throw i.error; }) : null;
+                });
+              }).then(function () { U.toast("Plano salvo"); rotear(); }).catch(function (e) { U.erro(e); return false; });
+            }]]);
+        });
+      }
+      $("#novo-plano").onclick = function () { editorPlano(); };
       tela.onclick = function (e) {
+        var ep = e.target.closest("[data-editar-plano]");
+        if (ep) return editorPlano(planos.filter(function (p) { return p.id === ep.getAttribute("data-editar-plano"); })[0]);
         var b = e.target.closest("[data-baixa]"); if (!b) return;
         modal("Dar baixa manual", '<div class="campo"><label for="bx-f">Forma de pagamento</label><select class="sel" id="bx-f"><option value="dinheiro">Dinheiro</option><option value="pix_direto">Pix direto</option><option value="cartao">Cartão na maquininha</option><option value="outro">Outro</option></select></div>' +
           '<div class="campo" style="margin-top:12px"><label for="bx-o">Observação</label><input id="bx-o"></div><p style="color:var(--cinza);font-size:13px">Fica registrado quem deu a baixa e quando.</p>',
