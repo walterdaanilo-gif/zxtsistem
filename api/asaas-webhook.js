@@ -21,7 +21,7 @@ module.exports = async (req, res) => {
     const resultado = await rpc('processar_evento_asaas', { p: {
       evento, payment_id: pg.id, subscription_id: pg.subscription || null, customer_id: pg.customer || null,
       valor_centavos: Math.round(Number(pg.value || 0) * 100), vencimento: pg.dueDate || null, forma: pg.billingType || null,
-      invoice_url: pg.invoiceUrl || null, boleto_url: pg.bankSlipUrl || null,
+      invoice_url: pg.invoiceUrl || null, boleto_url: pg.bankSlipUrl || null, recibo_url: pg.transactionReceiptUrl || null,
       pago_em: pg.clientPaymentDate || pg.paymentDate || pg.confirmedDate || null
     } });
     return responder(res, 200, { ok: true, resultado });

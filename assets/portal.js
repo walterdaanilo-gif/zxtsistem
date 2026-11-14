@@ -393,14 +393,111 @@
     $("#ck-res").innerHTML = S.ultimoCheckin || '<p style="margin:0;color:var(--cinza)">Aguardando leitura do QR code da recepção.</p>';
   };
 
+  // ------------------------------------------------ mensalidades e pagamento (Asaas)
+  var NOME_FORMA = { PIX: "Pix", BOLETO: "Boleto", CREDIT_CARD: "Cartão de crédito" };
+  function chamarPagar(corpo) {
+    return sb.auth.getSession().then(function (s) {
+      return fetch("/api/pagar", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + s.data.session.access_token }, body: JSON.stringify(corpo) });
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.erro || "Não deu para falar com o Asaas agora."); return j; }); });
+  }
+  function htmlPagamento(d) {
+    if (d.pix) return '<div class="pix-box"><p style="margin:0 0 10px"><b>Pague ' + U.reais(Math.round(d.valor * 100)) + " no Pix.</b> Escaneie o QR no app do banco ou use o copia e cola.</p>" +
+      '<img class="pix-qr" src="data:image/png;base64,' + d.pix.imagem + '" alt="QR code Pix">' +
+      '<div class="busca" style="margin:12px 0 0"><input readonly class="pix-cc" value="' + esc(d.pix.copiaCola) + '"><button class="btn-mini" data-copiar-pix>Copiar código</button></div>' +
+      '<p class="dica" style="margin:10px 0 0">A tela confere sozinha e marca como paga quando o banco confirmar.</p></div>';
+    if (d.forma === "BOLETO") return '<p style="margin:0 0 12px">Boleto de <b>' + U.reais(Math.round(d.valor * 100)) + "</b>, vencimento " + U.data(d.vencimento) + ". Compensa em 1 a 3 dias úteis.</p>" +
+      '<a class="btn btn-vermelho" target="_blank" rel="noopener" href="' + esc(d.boleto || d.link) + '">Abrir boleto</a>';
+    return '<p style="margin:0 0 12px">Você vai para a página segura do Asaas para digitar o cartão. Depois de pagar, volte aqui: a mensalidade é marcada como paga sozinha.</p>' +
+      '<a class="btn btn-vermelho" target="_blank" rel="noopener" href="' + esc(d.link) + '">Pagar com cartão</a>';
+  }
+
   VIEWS.financeiro = function () {
-    return sb.from("cobrancas").select("*").eq("aluno_id", S.user.id).order("vencimento", { ascending: false }).then(chk).then(function (cs) {
-      tela.innerHTML = "<h1>Minhas <em>mensalidades</em></h1><p class=\"sub\">Pagamento online por Pix, boleto e cartão entra na próxima etapa. Por enquanto, pague na recepção ou pelo Pix da academia.</p>" +
-        (cs.length ? '<div class="lista">' + cs.map(function (c) {
-          return '<div class="item' + (c.status === "atrasado" ? " destaque" : "") + '"><div><h3>' + U.reais(c.valor_final_centavos) + "</h3><p>" + esc(c.descricao) +
-            " · vence " + U.data(c.vencimento) + (c.desconto_centavos ? " · desconto de " + U.reais(c.desconto_centavos) : "") +
-            (c.pago_em ? " · pago em " + U.data(c.pago_em) : "") + "</p></div>" + tagStatus(c.status) + "</div>";
-        }).join("") + "</div>" : '<div class="vazio-box">Nenhuma mensalidade lançada ainda.</div>');
+    return Promise.all([
+      sb.from("cobrancas").select("*").eq("aluno_id", S.user.id).order("vencimento", { ascending: false }).then(chk),
+      sb.from("profiles").select("pagamento_forma,asaas_subscription_id").eq("id", S.user.id).single(),
+      sb.rpc("meu_plano")
+    ]).then(function (r) {
+      var cs = r[0], pf = (r[1].data || {}), planos = r[2].data || [];
+      var abertas = cs.filter(function (c) { return c.status === "em_aberto" || c.status === "atrasado"; });
+      var outras = cs.filter(function (c) { return abertas.indexOf(c) < 0; });
+      var automatico = !!pf.asaas_subscription_id;
+      function linha(c, aberta) {
+        return '<div class="item mens' + (c.status === "atrasado" ? " destaque" : "") + '" data-c="' + c.id + '"><div><h3>' + U.reais(c.valor_final_centavos) + "</h3><p>" + esc(c.descricao) +
+          " · vence " + U.data(c.vencimento) + (c.desconto_centavos ? " · desconto de " + U.reais(c.desconto_centavos) : "") +
+          (c.pago_em ? " · paga em " + U.data(c.pago_em) : "") + (c.forma_pagamento ? " · " + esc(c.forma_pagamento.replace("_", " ")) : "") + "</p></div>" +
+          '<div class="acoes">' + tagStatus(c.status) +
+          (aberta ? ' <button class="btn-mini" data-pagar="' + c.id + '">Pagar</button>' : "") +
+          (c.recibo_url ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + esc(c.recibo_url) + '">Recibo</a>' : "") + "</div>" +
+          (aberta ? '<div class="pagar-c" id="pg-' + c.id + '" hidden></div>' : "") + "</div>";
+      }
+      tela.innerHTML = "<h1>Minhas <em>mensalidades</em></h1><p class=\"sub\">Pague por Pix, boleto ou cartão. A baixa é automática quando o pagamento é confirmado.</p>" +
+        // resumo da assinatura
+        '<div class="cartao assin"><div><p class="olho" style="margin:0 0 4px">Sua assinatura</p>' +
+        "<h3>" + esc(planos[0] ? planos[0].plano : "Sem plano ativo") + "</h3>" +
+        '<p style="margin:4px 0 0;color:var(--cinza)">' + (automatico ? "Cobrança automática todo mês · forma atual: <b style=\"color:#fff\">" + esc(NOME_FORMA[pf.pagamento_forma] || "não definida") + "</b>" : "Cobrança feita pela recepção") + "</p></div>" +
+        (automatico ? '<button class="btn-mini claro" id="trocar-forma">Trocar forma de pagamento</button>' : "") + "</div>" +
+        // em aberto
+        "<h2>Em aberto</h2>" + (abertas.length ? '<div class="lista">' + abertas.map(function (c) { return linha(c, true); }).join("") + "</div>" : '<div class="vazio-box">Tudo em dia 🔥</div>') +
+        // histórico
+        (outras.length ? '<h2>Histórico</h2><div class="lista">' + outras.map(function (c) { return linha(c, false); }).join("") + "</div>" : "");
+
+      // pagar uma mensalidade
+      tela.onclick = function (e) {
+        var b = e.target.closest("[data-pagar]"), cp = e.target.closest("[data-copiar-pix]");
+        if (cp) { var inp = cp.parentNode.querySelector(".pix-cc"); navigator.clipboard.writeText(inp.value).then(function () { U.toast("Código Pix copiado"); }); return; }
+        if (e.target.id === "trocar-forma") return trocarForma();
+        if (b) {
+          var id = b.getAttribute("data-pagar"), box = $("#pg-" + id);
+          box.hidden = false;
+          box.innerHTML = '<p class="pp-titulo" style="margin:4px 0 8px">Como você quer pagar?</p><div class="formas">' +
+            ["PIX", "CREDIT_CARD", "BOLETO"].map(function (f) { return '<button class="forma" data-f="' + f + '" data-cid="' + id + '"><b>' + NOME_FORMA[f] + "</b><span>" + ({ PIX: "Confirma em segundos", CREDIT_CARD: "Página segura do Asaas", BOLETO: "1 a 3 dias úteis" })[f] + "</span></button>"; }).join("") +
+            '</div><div class="pg-res" style="margin-top:12px"></div>';
+          return;
+        }
+        var f = e.target.closest("[data-f]");
+        if (f) {
+          var cid = f.getAttribute("data-cid"), area = $("#pg-" + cid);
+          U.$$(".forma", area).forEach(function (x) { x.classList.toggle("sel", x === f); });
+          var res = area.querySelector(".pg-res");
+          res.innerHTML = '<p class="carregando" style="padding:0">Gerando pagamento no Asaas...</p>';
+          chamarPagar({ acao: "cobranca", cobranca_id: cid, forma: f.getAttribute("data-f") }).then(function (d) {
+            if (d.pago) { U.toast("Essa mensalidade já está paga"); return rotear(); }
+            res.innerHTML = htmlPagamento(d);
+            vigiar(cid);
+          }).catch(function (er) { res.innerHTML = '<span class="tag risco">Não gerado</span> ' + esc(er.message); });
+        }
+      };
+
+      function trocarForma() {
+        modal("Trocar forma de pagamento", '<p style="color:var(--cinza);margin:0 0 12px">Vale para as próximas mensalidades. Mensalidades já em aberto também passam para a forma nova.</p><div class="formas">' +
+          ["PIX", "CREDIT_CARD", "BOLETO"].map(function (f) { return '<button class="forma' + (pf.pagamento_forma === f ? " sel" : "") + '" data-nova="' + f + '"><b>' + NOME_FORMA[f] + "</b></button>"; }).join("") +
+          '</div><p class="dica" style="margin:12px 0 0">Para trocar o cartão: escolha Cartão de crédito. Você vai para a página segura do Asaas e cadastra o cartão novo ao pagar a próxima mensalidade.</p><div id="tf-res" style="margin-top:12px"></div>',
+          [["Fechar", function () { rotear(); }, "claro"]]);
+        var m = document.querySelector(".modal");
+        m.onclick = function (e) {
+          var b = e.target.closest("[data-nova]"); if (!b) return;
+          U.$$("[data-nova]", m).forEach(function (x) { x.classList.toggle("sel", x === b); });
+          var out = m.querySelector("#tf-res");
+          out.innerHTML = '<p class="carregando" style="padding:0">Atualizando no Asaas...</p>';
+          chamarPagar({ acao: "forma", forma: b.getAttribute("data-nova") }).then(function (d) {
+            pf.pagamento_forma = d.forma;
+            out.innerHTML = '<p style="margin:0 0 10px"><span class="tag ok">Atualizado</span> Suas mensalidades agora vêm por <b>' + NOME_FORMA[d.forma] + "</b>.</p>" +
+              (d.link ? '<a class="btn btn-vermelho btn-sm" target="_blank" rel="noopener" href="' + esc(d.link) + '">Cadastrar cartão na próxima mensalidade</a>' : "");
+          }).catch(function (er) { out.innerHTML = '<span class="tag risco">Não atualizado</span> ' + esc(er.message); });
+        };
+      }
+
+      // confere a cada 5s se a mensalidade foi paga
+      function vigiar(cid) {
+        clearInterval(S.timerMens);
+        var tentativas = 0;
+        S.timerMens = setInterval(function () {
+          if (++tentativas > 120 || !document.getElementById("pg-" + cid)) return clearInterval(S.timerMens);
+          sb.from("cobrancas").select("status").eq("id", cid).single().then(function (x) {
+            if (x.data && x.data.status === "pago") { clearInterval(S.timerMens); U.toast("Pagamento confirmado 🔥"); rotear(); }
+          });
+        }, 5000);
+      }
     });
   };
 
