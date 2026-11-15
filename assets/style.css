@@ -340,3 +340,36 @@ fieldset.campo { border: 0; margin: 0; }
 
 .so-desk { display: none; }
 @media (min-width: 600px) { .so-desk { display: inline-flex; } }
+
+/* ---------- baixar o app ---------- */
+.baixar { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 26px; }
+.baixar-btn { display: flex; align-items: center; gap: 12px; min-width: 210px; padding: 14px 22px; background: #fff; color: #070707; text-decoration: none; border: 2px solid #fff; transition: transform .15s; }
+.baixar-btn:hover { transform: translateY(-2px); }
+.baixar-btn.pronto { box-shadow: 0 0 0 3px var(--vermelho); }
+.baixar-btn svg { width: 34px; height: 34px; flex: 0 0 auto; }
+.baixar-btn span { display: grid; text-align: left; line-height: 1.1; }
+.baixar-btn small { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.baixar-btn b { font-family: var(--display); font-weight: 800; font-style: italic; text-transform: uppercase; font-size: 26px; }
+.baixar-nota { color: var(--cinza-2); font-size: 14px; margin-top: 16px; }
+.baixar-mini { text-align: center; color: var(--cinza-2); font-size: 14px; margin: 18px 0 0; }
+.baixar-mini a { color: #fff; }
+.inst-fundo { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.82); display: grid; place-items: end center; padding: 16px; }
+@media (min-width: 700px) { .inst-fundo { place-items: center; } }
+.inst-fundo.ipad { place-items: start end; }
+.inst-caixa { position: relative; width: 100%; max-width: 420px; background: #111; border: 1px solid #2a2a2a; border-top: 3px solid var(--vermelho); padding: 24px 20px 20px; color: #fff; text-align: left; }
+.inst-caixa h3 { font-family: var(--display); font-weight: 800; font-style: italic; text-transform: uppercase; font-size: 26px; margin: 0 0 6px; }
+.inst-caixa p { color: #ccc; margin: 0 0 12px; }
+.inst-x { position: absolute; top: 8px; right: 10px; background: none; border: 0; color: #aaa; font-size: 28px; cursor: pointer; line-height: 1; }
+.inst-icone { display: block; border-radius: 14px; margin-bottom: 10px; }
+.inst-sub { color: var(--cinza) !important; }
+.inst-passos { margin: 8px 0 12px; padding-left: 20px; display: grid; gap: 8px; color: #ddd; }
+.inst-passos.grande { list-style: none; padding: 0; gap: 12px; }
+.inst-passos.grande li { display: flex; gap: 12px; align-items: flex-start; font-size: 16px; }
+.inst-n { flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--vermelho); color: #fff; display: grid; place-items: center; font-weight: 700; }
+.inst-share { width: 20px; height: 20px; vertical-align: -4px; color: #3b8cff; }
+.inst-mais { display: inline-grid; place-items: center; width: 20px; height: 20px; border: 1.5px solid #ddd; border-radius: 4px; font-size: 13px; vertical-align: -3px; }
+.inst-pe { font-size: 13px; color: var(--cinza-2) !important; margin: 4px 0 0 !important; }
+.inst-qr { width: 190px; margin: 6px auto 12px; background: #fff; padding: 8px; }
+.inst-qr svg { display: block; width: 100%; height: auto; }
+.inst-seta { text-align: center; font-size: 44px; color: var(--vermelho); line-height: 1; margin-top: 8px; animation: inst-pulo 1s ease-in-out infinite; }
+@keyframes inst-pulo { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
