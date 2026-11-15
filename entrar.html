@@ -8,12 +8,17 @@
   <meta name="theme-color" content="#070707">
   <meta name="robots" content="noindex">
   <link rel="icon" href="/assets/favicon.png" type="image/png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="ZXT">
   <link rel="apple-touch-icon" href="/assets/icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,600;1,700;1,800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=202611142008">
-  <link rel="stylesheet" href="/assets/portal.css?v=202611142008">
+  <link rel="stylesheet" href="/assets/style.css?v=202611151331">
+  <link rel="stylesheet" href="/assets/portal.css?v=202611151331">
 </head>
 <body class="portal">
   <main class="auth">
@@ -31,6 +36,7 @@
       <form class="form" id="f-entrar" novalidate>
         <div class="campo"><label for="e-email">E-mail</label><input id="e-email" type="email" autocomplete="email" required></div>
         <div class="campo"><label for="e-senha">Senha</label><input id="e-senha" type="password" autocomplete="current-password" required></div>
+        <label class="check"><input type="checkbox" id="e-lembrar" checked> <span>Manter conectado neste aparelho (recomendado no celular para receber as notificações)</span></label>
         <button class="btn btn-vermelho btn-bloco" type="submit">Entrar</button>
         <button class="link" type="button" id="esqueci">Esqueci minha senha</button>
       </form>
@@ -101,8 +107,8 @@
     </div>
   </main>
 
-  <script src="/assets/vendor/supabase.min.js?v=202611142008"></script>
-  <script src="/assets/portal-base.js?v=202611142008"></script>
-  <script src="/assets/entrar.js?v=202611142008"></script>
+  <script src="/assets/vendor/supabase.min.js?v=202611151331"></script>
+  <script src="/assets/portal-base.js?v=202611151331"></script>
+  <script src="/assets/entrar.js?v=202611151331"></script>
 </body>
 </html>

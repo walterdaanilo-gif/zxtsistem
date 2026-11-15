@@ -105,6 +105,10 @@
       .then(function (r) {
         b.disabled = false;
         if (r.error) return U.erro(r.error);
+        try {
+          localStorage.setItem("zxt_lembrar", $("#e-lembrar").checked ? "1" : "0");
+          sessionStorage.setItem("zxt_sessao", "1");
+        } catch (er) {}
         location.replace("/app");
       });
   });

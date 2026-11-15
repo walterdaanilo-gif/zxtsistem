@@ -273,6 +273,7 @@
     window.scrollTo(0, 0);
     Promise.resolve().then(function () { return VIEWS[r](); }).then(function () {
       if (S.modo === "aluno" && ["inicio", "agenda", "checkin", "financeiro", "comunidade"].indexOf(r) >= 0) avisoBloqueio(r);
+      if (r === MENUS[S.modo][0][0]) conviteApp();
     }).catch(falhou);
   }
   window.addEventListener("hashchange", function () { if (S.modo) rotear(); });
@@ -2236,11 +2237,13 @@
       var naoLidas = ns.filter(function (n) { return !n.lida; }).length;
       var tipos = Object.keys(TIPOS_NOTIF).filter(function (k) { var g = TIPOS_NOTIF[k][2]; return g === "todos" || (g === "equipe" ? ehEquipe() : true); });
       tela.innerHTML = "<h1><em>Notificações</em></h1><p class=\"sub\">" + (naoLidas ? naoLidas + " não lida(s)." : "Tudo em dia.") + " Escolha abaixo o que você quer receber.</p>" +
+        '<div id="push-cartao"></div>' +
         '<div class="busca">' + (naoLidas ? '<button class="btn-mini" id="nt-todas">Marcar todas como lidas</button>' : "") + '<button class="btn-mini claro" id="nt-config">Configurar notificações</button></div>' +
         (ns.length ? '<div class="lista notifs">' + ns.map(function (n) {
           return '<button class="notif' + (n.lida ? "" : " nova") + '" data-nt="' + n.id + '"><span class="nt-ic">' + (IC_NOTIF[n.tipo] || "🔔") + "</span><span><b>" + esc(n.titulo) + "</b>" +
             (n.corpo ? "<small>" + esc(n.corpo) + "</small>" : "") + "</span><em>" + tempoNotif(n.created_at) + "</em></button>";
         }).join("") + "</div>" : '<div class="vazio-box">Nenhuma notificação ainda. Quando tiver mensalidade, pagamento, postagem ou evento, aparece aqui.</div>');
+      cartaoPush($("#push-cartao"));
       if ($("#nt-todas")) $("#nt-todas").onclick = function () {
         sb.from("notificacoes").update({ lida: true }).eq("user_id", S.user.id).eq("lida", false).then(function () { atualizarSino(); rotear(); });
       };
@@ -2493,6 +2496,50 @@
             U.toast(j.feitas + " mensalidade(s) baixada(s). Acesso liberado."); rotear();
           }).catch(function (e) { U.toast(e.message, "erro"); return false; });
         }, "verde"]]);
+    });
+  }
+
+  // =================================================================== APP NO CELULAR
+  function passosInstalar() {
+    return PUSH.ios()
+      ? '<ol class="passos"><li>Abra <b>zxtsistem.vercel.app</b> no <b>Safari</b>.</li><li>Toque em <b>Compartilhar</b> (quadrado com a seta para cima).</li><li>Toque em <b>Adicionar à Tela de Início</b> e depois em <b>Adicionar</b>.</li><li>Abra a ZXT pelo ícone, entre com seu login e volte aqui em Notificações para ativar.</li></ol><p class="dica" style="margin:6px 0 0">No iPhone as notificações só funcionam pelo ícone da Tela de Início (iOS 16.4 ou mais novo).</p>'
+      : '<ol class="passos"><li>No Chrome, toque nos <b>três pontinhos</b>.</li><li>Toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</li><li>Abra a ZXT pelo ícone e ative as notificações aqui.</li></ol>';
+  }
+  function cartaoPush(el) {
+    if (!el) return;
+    PUSH.estado().then(function (st) {
+      var h;
+      if (st === "instalar") h = '<div class="cartao push"><b>📲 Instale a ZXT no seu iPhone</b><p>Assim ela abre como aplicativo, fica logada e as notificações apitam no celular.</p>' + passosInstalar() + "</div>";
+      else if (st === "sem_suporte") h = '<div class="cartao push"><b>📲 Notificações no celular</b><p>Este navegador não recebe notificações. No iPhone, instale pelo Safari; no Android, use o Chrome.</p></div>';
+      else if (st === "negado") h = '<div class="cartao push"><b>🔕 Notificações bloqueadas neste aparelho</b><p>' + (PUSH.ios() ? "Vá em Ajustes → Notificações → ZXT e ative Permitir Notificações e Sons." : "Libere as notificações do site nas configurações do navegador.") + "</p></div>";
+      else if (st === "ativo") h = '<div class="cartao push ok"><b>✅ Notificações ativadas neste aparelho</b><p>Quando chegar mensalidade, pagamento, evento ou postagem, o celular avisa com som (se o modo silencioso ou o Foco estiver desligado).</p>' +
+        '<div class="busca" style="margin:8px 0 0"><button class="btn-mini claro" id="push-teste">Mandar uma notificação de teste</button><button class="btn-mini claro" id="push-off">Desativar neste aparelho</button></div></div>';
+      else h = '<div class="cartao push"><b>🔔 Receba as notificações no celular</b><p>Ative para o celular apitar quando chegar algo da ZXT, mesmo com o app fechado.</p><button class="btn-mini" id="push-on">Ativar notificações neste aparelho</button></div>';
+      el.innerHTML = h;
+      var on = el.querySelector("#push-on"), off = el.querySelector("#push-off"), teste = el.querySelector("#push-teste");
+      if (on) on.onclick = function () {
+        on.disabled = true; on.textContent = "Ativando...";
+        PUSH.ativar().then(function () { U.toast("Notificações ativadas 🔔"); try { localStorage.setItem("zxt_push_convite", "feito"); } catch (e) {} cartaoPush(el); })
+          .catch(function (e) { U.toast(e.message || "Não deu para ativar.", "erro"); cartaoPush(el); });
+      };
+      if (off) off.onclick = function () { PUSH.desativar().then(function () { U.toast("Desativado neste aparelho"); cartaoPush(el); }); };
+      if (teste) teste.onclick = function () {
+        sb.rpc("notificacao_teste").then(function (x) { if (x.error) return U.erro(x.error); U.toast("Enviada. Bloqueie a tela para ver chegar."); });
+      };
+    });
+  }
+  // convite discreto na primeira tela, até a pessoa ativar ou dispensar
+  function conviteApp() {
+    var disp = null; try { disp = localStorage.getItem("zxt_push_convite"); } catch (e) {}
+    if (disp) return;
+    PUSH.estado().then(function (st) {
+      if (st !== "instalar" && st !== "inativo") return;
+      var h1 = tela.querySelector("h1"); if (!h1 || tela.querySelector(".convite-app")) return;
+      var d = document.createElement("div"); d.className = "convite-app";
+      d.innerHTML = (st === "instalar" ? "<span>📲 <b>Instale a ZXT no iPhone</b> e receba as notificações no celular.</span>" : "<span>🔔 <b>Ative as notificações</b> para o celular avisar quando chegar algo da ZXT.</span>") +
+        '<a class="btn-mini" href="#/notificacoes">' + (st === "instalar" ? "Como instalar" : "Ativar") + '</a><button class="link-mini" type="button">Agora não</button>';
+      d.querySelector("button").onclick = function () { try { localStorage.setItem("zxt_push_convite", "dispensado"); } catch (e) {} d.remove(); };
+      h1.parentNode.insertBefore(d, h1);
     });
   }
 

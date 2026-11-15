@@ -232,3 +232,64 @@ U.corGrad = function (n) {
 U.barraGrad = function (n, largura) {
   return '<span class="barra-grad" style="width:' + (largura || 64) + 'px;background:' + U.esc(U.corGrad(n)) + '"></span>';
 };
+
+// ---------------------------------------------------------------------------
+// App no celular: service worker, "manter conectado" e notificações (Web Push)
+// ---------------------------------------------------------------------------
+(function () {
+  // sem "manter conectado": a sessão acaba quando o navegador/app é fechado
+  try {
+    if (localStorage.getItem("zxt_lembrar") === "0" && !sessionStorage.getItem("zxt_sessao")) {
+      sb.auth.signOut();
+    }
+  } catch (e) {}
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); });
+  }
+})();
+
+window.PUSH = {
+  chave: "BKjRsyN0HDFRGAdh8mGENkdzWjDiexewLfWo8Uvy98P6sSNt_NGDGkFS39jO9c3V_SIT_HFjdNml2dbtm6KAIEk",
+  ios: function () { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); },
+  instalado: function () { return window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches; },
+  suportado: function () { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; },
+  // estado: "instalar" (iPhone fora do app), "sem_suporte", "negado", "ativo", "inativo"
+  estado: function () {
+    if (PUSH.ios() && !PUSH.instalado()) return Promise.resolve("instalar");
+    if (!PUSH.suportado()) return Promise.resolve("sem_suporte");
+    if (Notification.permission === "denied") return Promise.resolve("negado");
+    return navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); })
+      .then(function (s) { return s && Notification.permission === "granted" ? "ativo" : "inativo"; })
+      .catch(function () { return "inativo"; });
+  },
+  _chaveBytes: function () {
+    var b = PUSH.chave.replace(/-/g, "+").replace(/_/g, "/"), pad = "=".repeat((4 - b.length % 4) % 4);
+    var bin = atob(b + pad), out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  },
+  // precisa ser chamado por um toque (exigência do iPhone)
+  ativar: function () {
+    return Notification.requestPermission().then(function (p) {
+      if (p !== "granted") throw new Error("Permissão negada. Libere as notificações da ZXT nos ajustes do celular.");
+      return navigator.serviceWorker.register("/sw.js").then(function () { return navigator.serviceWorker.ready; });
+    }).then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (s) {
+        return s || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: PUSH._chaveBytes() });
+      });
+    }).then(function (sub) {
+      var j = sub.toJSON();
+      return sb.auth.getSession().then(function (ss) {
+        return sb.from("push_inscricoes").upsert({ user_id: ss.data.session.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+          aparelho: (PUSH.ios() ? "iPhone" : /android/i.test(navigator.userAgent) ? "Android" : "Computador") + (PUSH.instalado() ? " (app)" : "") }, { onConflict: "endpoint" });
+      }).then(function (r) { if (r.error) throw r.error; return true; });
+    });
+  },
+  desativar: function () {
+    return navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (s) {
+      if (!s) return true;
+      var ep = s.endpoint;
+      return s.unsubscribe().then(function () { return sb.from("push_inscricoes").delete().eq("endpoint", ep); });
+    });
+  }
+};

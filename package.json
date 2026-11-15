@@ -1,0 +1,8 @@
+{
+  "name": "zxtsistem",
+  "private": true,
+  "description": "Portal ZXT: site estático + funções /api na Vercel",
+  "dependencies": {
+    "web-push": "3.6.7"
+  }
+}
