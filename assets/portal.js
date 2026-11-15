@@ -2502,7 +2502,10 @@
   // =================================================================== APP NO CELULAR
   function passosInstalar() {
     return PUSH.ios()
-      ? '<ol class="passos"><li>Abra <b>zxtsistem.vercel.app</b> no <b>Safari</b>.</li><li>Toque em <b>Compartilhar</b> (quadrado com a seta para cima).</li><li>Toque em <b>Adicionar à Tela de Início</b> e depois em <b>Adicionar</b>.</li><li>Abra a ZXT pelo ícone, entre com seu login e volte aqui em Notificações para ativar.</li></ol><p class="dica" style="margin:6px 0 0">No iPhone as notificações só funcionam pelo ícone da Tela de Início (iOS 16.4 ou mais novo).</p>'
+      ? (/crios/i.test(navigator.userAgent)
+        ? '<ol class="passos"><li>No <b>Chrome</b>, toque em <b>Compartilhar</b> (quadrado com a seta) no <b>alto da tela</b>, na barra de endereço. Se não aparecer, toque em <b>⋯</b> e depois em Compartilhar.</li><li>Toque em <b>Adicionar à Tela de Início</b> e depois em <b>Adicionar</b>.</li><li>Abra a ZXT pelo ícone, entre com seu login e volte aqui em Notificações para ativar.</li></ol>'
+        : '<ol class="passos"><li>No <b>Safari</b>, toque em <b>Compartilhar</b> (quadrado com a seta) na barra de baixo. Se não aparecer, toque em <b>•••</b> primeiro.</li><li>Toque em <b>Adicionar à Tela de Início</b> e depois em <b>Adicionar</b>.</li><li>Abra a ZXT pelo ícone, entre com seu login e volte aqui em Notificações para ativar.</li></ol>') +
+        '<p class="dica" style="margin:6px 0 0">Funciona pelo Safari ou pelo Chrome. No iPhone as notificações só chegam pelo ícone da Tela de Início (iOS 16.4 ou mais novo).</p>'
       : '<ol class="passos"><li>No Chrome, toque nos <b>três pontinhos</b>.</li><li>Toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</li><li>Abra a ZXT pelo ícone e ative as notificações aqui.</li></ol>';
   }
   function cartaoPush(el) {

@@ -6,7 +6,7 @@
   var ua = navigator.userAgent;
   var ehIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   var ehAndroid = /android/i.test(ua);
-  var outroNavIOS = ehIOS && /crios|fxios|edgios|opios/i.test(ua);
+  var outroNavIOS = ehIOS && /fxios|edgios|opios|instagram|fban|fbav|line\/|whatsapp/i.test(ua);
   function instalado() { return window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches; }
   var SITE = location.origin + "/app";
 
@@ -51,15 +51,28 @@
     if (instalado()) return aviso("Você já está no app ✅", "A ZXT já está na sua Tela de Início.");
     if (!ehIOS) return camada("<h3>Abra no seu iPhone</h3><p>Aponte a câmera do iPhone para o código, abra no <b>Safari</b> e toque em <b>Baixar para iPhone</b>.</p>" + qr() +
       '<p class="inst-pe">Ou acesse <b>' + location.host + "</b> no Safari do iPhone.</p>");
+    var ipad = /ipad/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    var SHARE = '<svg class="inst-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+    if (/crios/i.test(ua)) {
+      // Chrome no iPhone (iOS 16.4+): Compartilhar fica no alto, na barra de endereço
+      var gc = camada('<img class="inst-icone" src="/assets/icon-180.png" alt="" width="64" height="64"><h3>Instalar pelo Chrome</h3><p class="inst-sub">3 toques e a ZXT fica na sua tela como aplicativo.</p>' +
+        '<ol class="inst-passos grande"><li><span class="inst-n">1</span><span>Toque em <b>Compartilhar</b> ' + SHARE + ' no <b>alto da tela</b>, no canto direito da barra de endereço. Se não aparecer, toque em <b>⋯</b> (embaixo) e depois em <b>Compartilhar</b>.</span></li>' +
+        '<li><span class="inst-n">2</span><span>Role e toque em <b>Adicionar à Tela de Início</b> <span class="inst-mais">＋</span></span></li>' +
+        '<li><span class="inst-n">3</span><span>Toque em <b>Adicionar</b>. Depois abra a ZXT pelo ícone e entre com seu login.</span></li></ol>' +
+        '<p class="inst-pe">Não achou a opção? Seu iPhone pode estar com iOS antigo: abra <b>' + location.host + '</b> no Safari e toque de novo em Baixar para iPhone.</p>' +
+        '<div class="inst-seta topo" aria-hidden="true">↑</div>');
+      gc.classList.add("topo");
+      return;
+    }
     if (outroNavIOS) {
-      var f = camada("<h3>Abra no Safari</h3><p>Para instalar no iPhone, este site precisa estar aberto no <b>Safari</b>.</p><ol class=\"inst-passos\"><li>Toque em <b>Copiar link</b>.</li><li>Abra o <b>Safari</b>, cole na barra de endereço e abra.</li><li>Toque de novo em <b>Baixar para iPhone</b>.</li></ol>" +
+      var f = camada("<h3>Instalar no iPhone</h3><p>Funciona melhor pelo <b>Safari</b> ou pelo <b>Chrome</b>.</p><ol class=\"inst-passos\"><li>Toque em <b>Copiar link</b>.</li><li>Abra o <b>Safari</b> (ou o Chrome), cole na barra de endereço e abra.</li><li>Toque de novo em <b>Baixar para iPhone</b>.</li></ol>" +
         '<button class="btn btn-vermelho btn-bloco" id="inst-copiar">Copiar link</button>');
       f.querySelector("#inst-copiar").onclick = function () {
-        (navigator.clipboard ? navigator.clipboard.writeText(location.origin) : Promise.reject()).then(function () { this.textContent = "Link copiado ✅"; }.bind(this), function () { prompt("Copie o link:", location.origin); });
+        var bt = this;
+        (navigator.clipboard ? navigator.clipboard.writeText(location.origin) : Promise.reject()).then(function () { bt.textContent = "Link copiado ✅"; }, function () { prompt("Copie o link:", location.origin); });
       };
       return;
     }
-    var ipad = /ipad/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     var g = camada('<img class="inst-icone" src="/assets/icon-180.png" alt="" width="64" height="64"><h3>Instalar no iPhone</h3><p class="inst-sub">3 toques e a ZXT fica na sua tela como aplicativo.</p>' +
       '<ol class="inst-passos grande"><li><span class="inst-n">1</span><span>Toque em <b>Compartilhar</b> <svg class="inst-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg> ' +
         (ipad ? "no alto da tela." : "na barra do Safari (se não aparecer, toque em <b>•••</b> primeiro).") + "</span></li>" +
