@@ -412,7 +412,12 @@
     S.tokenCheckin = null;
     try { sessionStorage.removeItem("zxt_checkin"); } catch (e) {}
     tela.innerHTML = "<h1>Check-<em>in</em></h1>" +
-      '<p class="sub">Na recepção, aponte a câmera do celular para o QR code da ZXT. O check-in abre 30 minutos antes da aula e vai até o fim dela.</p>' +
+      '<p class="sub">Na recepção, toque em Abrir câmera e aponte para o QR code da ZXT. O check-in abre 30 minutos antes da aula e vai até o fim dela.</p>' +
+      '<div class="cartao" id="ck-cam-box"><button class="btn-mini" id="ck-cam" style="width:100%;padding:14px 12px;font-size:16px">📷 Abrir câmera</button>' +
+      '<div id="ck-video-wrap" style="display:none;margin-top:12px"><div style="position:relative;background:#000;aspect-ratio:1/1;overflow:hidden"><video id="ck-video" playsinline muted style="width:100%;height:100%;object-fit:cover"></video>' +
+      '<div style="position:absolute;inset:18%;border:3px solid #fff;opacity:.8;pointer-events:none"></div></div>' +
+      '<p id="ck-cam-msg" style="margin:8px 0 0;color:var(--cinza);text-align:center">Aponte para o QR code da recepção.</p>' +
+      '<button class="btn-mini claro" id="ck-fechar" style="width:100%;margin-top:8px">Fechar câmera</button></div></div>' +
       '<div class="cartao" id="ck-res"></div>' +
       '<h2>Sem câmera?</h2><div class="cartao"><p style="margin:0 0 10px;color:var(--cinza)">Peça o código à recepção e digite aqui.</p>' +
       '<div class="busca"><input id="ck-cod" placeholder="Código do QR" autocomplete="off" autocapitalize="off"><button class="btn-mini" id="ck-ok">Fazer check-in</button></div></div>';
@@ -428,8 +433,77 @@
       });
     }
     $("#ck-ok").onclick = function () { var v = $("#ck-cod").value; if (v) fazer(v); };
+
+    // câmera: BarcodeDetector quando existe (Chrome), jsQR nos demais (iPhone/Safari)
+    var stream = null, rodando = false, detector = null;
+    function pararCamera() {
+      rodando = false;
+      if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+      var w = $("#ck-video-wrap"), b = $("#ck-cam");
+      if (w) w.style.display = "none";
+      if (b) b.style.display = "";
+    }
+    function extrairToken(txt) {
+      var m = String(txt || "").match(/[?&]t=([a-z0-9-]+)/i);
+      return (m ? m[1] : String(txt || "").trim()).toLowerCase();
+    }
+    function carregarJsqr() {
+      if (window.jsQR) return Promise.resolve();
+      return new Promise(function (ok, erro) {
+        var sc = document.createElement("script");
+        sc.src = "/assets/vendor/jsqr.js?v=202611162240";
+        sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
+        document.head.appendChild(sc);
+      });
+    }
+    function abrirCamera() {
+      var msg = $("#ck-cam-msg");
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        return mostrar('<p style="margin:0"><span class="tag risco">Câmera indisponível</span> Este navegador não libera a câmera. Digite o código abaixo.</p>');
+      }
+      $("#ck-cam").style.display = "none";
+      $("#ck-video-wrap").style.display = "";
+      msg.textContent = "Abrindo a câmera...";
+      var preparar = ("BarcodeDetector" in window) ? Promise.resolve().then(function () { detector = new window.BarcodeDetector({ formats: ["qr_code"] }); }).catch(function () { detector = null; return carregarJsqr(); }) : carregarJsqr();
+      Promise.all([preparar, navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })]).then(function (r) {
+        stream = r[1];
+        var v = $("#ck-video");
+        if (!v) return pararCamera();
+        v.srcObject = stream;
+        return v.play().then(function () {
+          rodando = true;
+          msg.textContent = "Aponte para o QR code da recepção.";
+          var cv = document.createElement("canvas"), cx = cv.getContext("2d", { willReadFrequently: true });
+          (function ler() {
+            if (!rodando || !document.body.contains(v)) return pararCamera();
+            var achou = null, seguinte = Promise.resolve();
+            if (v.readyState >= 2 && v.videoWidth) {
+              if (detector) {
+                seguinte = detector.detect(v).then(function (c) { if (c && c.length) achou = c[0].rawValue; }).catch(function () {});
+              } else if (window.jsQR) {
+                var k = Math.min(1, 640 / v.videoWidth);
+                cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
+                cx.drawImage(v, 0, 0, cv.width, cv.height);
+                var q = window.jsQR(cx.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height, { inversionAttempts: "dontInvert" });
+                if (q) achou = q.data;
+              }
+            }
+            seguinte.then(function () {
+              if (achou) { pararCamera(); return fazer(extrairToken(achou)); }
+              setTimeout(ler, 150);
+            });
+          })();
+        });
+      }).catch(function (e) {
+        pararCamera();
+        var negou = e && (e.name === "NotAllowedError" || e.name === "SecurityError");
+        mostrar('<p style="margin:0"><span class="tag risco">Câmera não abriu</span> ' + (negou ? "Você não liberou a câmera. Libere nas permissões do navegador e toque em Abrir câmera de novo." : "Não deu para abrir a câmera. Digite o código abaixo.") + "</p>");
+      });
+    }
+    $("#ck-cam").onclick = abrirCamera;
+    $("#ck-fechar").onclick = pararCamera;
     if (tok) return fazer(tok);
-    $("#ck-res").innerHTML = S.ultimoCheckin || '<p style="margin:0;color:var(--cinza)">Aguardando leitura do QR code da recepção.</p>';
+    $("#ck-res").innerHTML = S.ultimoCheckin || '<p style="margin:0;color:var(--cinza)">Toque em Abrir câmera para ler o QR code da recepção.</p>';
   };
 
   // ------------------------------------------------ mensalidades e pagamento (Asaas)
