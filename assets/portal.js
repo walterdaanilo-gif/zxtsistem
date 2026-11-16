@@ -412,7 +412,7 @@
     S.tokenCheckin = null;
     try { sessionStorage.removeItem("zxt_checkin"); } catch (e) {}
     tela.innerHTML = "<h1>Check-<em>in</em></h1>" +
-      '<p class="sub">Na recepção, toque em Abrir câmera e aponte para o QR code da ZXT. O check-in abre 30 minutos antes da aula e vai até o fim dela.</p>' +
+      '<p class="sub">Na recepção, a câmera abre sozinha: aponte para o QR code da ZXT. O check-in abre 30 minutos antes da aula e vai até o fim dela.</p>' +
       '<div class="cartao" id="ck-cam-box"><button class="btn-mini" id="ck-cam" style="width:100%;padding:14px 12px;font-size:16px">📷 Abrir câmera</button>' +
       '<div id="ck-video-wrap" style="display:none;margin-top:12px"><div style="position:relative;background:#000;aspect-ratio:1/1;overflow:hidden"><video id="ck-video" playsinline muted style="width:100%;height:100%;object-fit:cover"></video>' +
       '<div style="position:absolute;inset:18%;border:3px solid #fff;opacity:.8;pointer-events:none"></div></div>' +
@@ -451,7 +451,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611162240";
+        sc.src = "/assets/vendor/jsqr.js?v=202611162310";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -503,6 +503,7 @@
     $("#ck-cam").onclick = abrirCamera;
     $("#ck-fechar").onclick = pararCamera;
     if (tok) return fazer(tok);
+    abrirCamera();
     $("#ck-res").innerHTML = S.ultimoCheckin || '<p style="margin:0;color:var(--cinza)">Toque em Abrir câmera para ler o QR code da recepção.</p>';
   };
 
