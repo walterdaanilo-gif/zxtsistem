@@ -453,7 +453,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611190745";
+        sc.src = "/assets/vendor/jsqr.js?v=202611190830";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -2405,12 +2405,13 @@
     aula: ["Aulas canceladas", "Quando uma aula da sua turma é excluída pela equipe", "aluno"],
     comprovante: ["Comprovantes de pagamento", "Pagamento confirmado, com o link do recibo", "aluno"],
     post: ["Postagens do feed", "Avisos da equipe e postagens novas na comunidade", "todos"],
+    interacao: ["Curtidas e comentários", "Quando alguém curte ou comenta sua publicação, ou curte ou responde seu comentário", "todos"],
     pagamento: ["Pagamentos dos alunos", "Mensalidade paga (Asaas ou baixa manual) e mensalidade em atraso", "equipe"],
     evento_inscricao: ["Inscrições em eventos", "Cada inscrição nova, pelo link, Google Forms ou manual", "equipe"],
     evento_pagamento: ["Pagamentos de eventos", "Inscrição paga", "equipe"],
     cadastro: ["Novos cadastros", "Aluno ou professor aguardando aprovação", "equipe"]
   };
-  var IC_NOTIF = { aula: "📅", cobranca: "💳", comprovante: "✅", post: "💬", pagamento: "💰", evento_inscricao: "🎟️", evento_pagamento: "💰", cadastro: "👤", geral: "🔔" };
+  var IC_NOTIF = { aula: "📅", cobranca: "💳", comprovante: "✅", post: "💬", interacao: "❤️", pagamento: "💰", evento_inscricao: "🎟️", evento_pagamento: "💰", cadastro: "👤", geral: "🔔" };
   function ehEquipe() { return S.papeis.indexOf("admin") >= 0 || S.papeis.indexOf("professor") >= 0; }
   function tempoNotif(iso) {
     var min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
