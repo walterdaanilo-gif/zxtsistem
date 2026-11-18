@@ -453,7 +453,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611182110";
+        sc.src = "/assets/vendor/jsqr.js?v=202611190650";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -684,6 +684,53 @@
     });
   }
 
+  // janela de ajuste: arrastar para posicionar, controle de zoom, círculo mostra o corte final
+  function cortarFoto(file) {
+    return new Promise(function (ok, erro) {
+      var img = new Image(), url = URL.createObjectURL(file), T = 280, OUT = 480;
+      img.onerror = function () { URL.revokeObjectURL(url); erro(new Error("Não deu para ler essa imagem. Tente JPG ou PNG.")); };
+      img.onload = function () {
+        var base = Math.max(T / img.naturalWidth, T / img.naturalHeight), z = 1, ox = 0, oy = 0;
+        var f = modal("Ajustar foto",
+          '<div style="width:' + T + 'px;max-width:100%;margin:0 auto"><canvas id="cf-cv" width="' + T + '" height="' + T + '" style="width:100%;touch-action:none;background:#000;display:block;cursor:grab"></canvas>' +
+          '<input type="range" id="cf-zoom" min="1" max="4" step="0.01" value="1" style="width:100%;margin-top:12px">' +
+          '<p style="margin:6px 0 0;color:var(--cinza);font-size:13px;text-align:center">Arraste a foto e use o controle para aproximar.</p></div>',
+          [["Cancelar", function () { URL.revokeObjectURL(url); ok(null); }, "claro"],
+           ["Usar foto", function () {
+             var c = document.createElement("canvas"); c.width = c.height = OUT;
+             desenhar(c.getContext("2d"), OUT);
+             URL.revokeObjectURL(url);
+             c.toBlob(function (b) { b ? ok(b) : erro(new Error("Não deu para processar a foto.")); }, "image/jpeg", 0.88);
+           }, "verde"]]);
+        var cv = f.querySelector("#cf-cv"), cx = cv.getContext("2d");
+        function limitar(tam) {
+          var w = img.naturalWidth * base * z, h = img.naturalHeight * base * z;
+          var mx = Math.max(0, (w - tam) / 2), my = Math.max(0, (h - tam) / 2);
+          ox = Math.max(-mx, Math.min(mx, ox)); oy = Math.max(-my, Math.min(my, oy));
+        }
+        function desenhar(c2, tam) {
+          var k = tam / T; limitar(T);
+          var w = img.naturalWidth * base * z * k, h = img.naturalHeight * base * z * k;
+          c2.fillStyle = "#000"; c2.fillRect(0, 0, tam, tam);
+          c2.drawImage(img, (tam - w) / 2 + ox * k, (tam - h) / 2 + oy * k, w, h);
+        }
+        function pintar() {
+          desenhar(cx, T);
+          cx.save(); cx.fillStyle = "rgba(0,0,0,.6)"; cx.beginPath(); cx.rect(0, 0, T, T); cx.arc(T / 2, T / 2, T / 2 - 4, 0, Math.PI * 2, true); cx.fill("evenodd");
+          cx.strokeStyle = "#fff"; cx.lineWidth = 2; cx.beginPath(); cx.arc(T / 2, T / 2, T / 2 - 4, 0, Math.PI * 2); cx.stroke(); cx.restore();
+        }
+        var ult = null;
+        function ponto(e) { var r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * T / r.width, y: (e.clientY - r.top) * T / r.height }; }
+        cv.onpointerdown = function (e) { ult = ponto(e); cv.setPointerCapture(e.pointerId); cv.style.cursor = "grabbing"; };
+        cv.onpointermove = function (e) { if (!ult) return; var p2 = ponto(e); ox += p2.x - ult.x; oy += p2.y - ult.y; ult = p2; pintar(); };
+        cv.onpointerup = cv.onpointercancel = function () { ult = null; cv.style.cursor = "grab"; };
+        f.querySelector("#cf-zoom").oninput = function () { z = parseFloat(this.value); pintar(); };
+        pintar();
+      };
+      img.src = url;
+    });
+  }
+
   VIEWS.perfil = function () {
     var p = S.perfil;
     function campo(id, rot, val, tipo) { return '<div class="campo"><label for="' + id + '">' + rot + '</label><input id="' + id + '" type="' + (tipo || "text") + '" value="' + esc(val || "") + '"></div>'; }
@@ -708,17 +755,20 @@
       });
     }
     $("#pf-arq").onchange = function () {
-      var f = this.files && this.files[0]; this.value = "";
+      var f = this.files && this.files[0];
       if (!f) return;
-      if (!/^image\//.test(f.type)) return U.toast("Escolha uma imagem.", "erro");
-      U.toast("Enviando foto...");
-      quadrada(f, 480).then(function (blob) {
+      if (f.type && !/^image\//.test(f.type)) return U.toast("Escolha uma imagem.", "erro");
+      cortarFoto(f).then(function (blob) {
+        if (!blob) return;
         var path = S.user.id + "/avatar.jpg";
         return sb.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg", upsert: true }).then(function (u) {
           if (u.error) throw u.error;
           return salvarFoto(sb.storage.from("avatars").getPublicUrl(path).data.publicUrl + "?v=" + Date.now());
-        });
-      }).then(function () { U.toast("Foto atualizada"); }).catch(function (er) { U.erro(er); });
+        }).then(function () { U.toast("Foto atualizada"); });
+      }).catch(function (er) {
+        var m = (er && er.message) || "erro desconhecido";
+        modal("Não foi possível salvar a foto", '<p style="color:var(--cinza)">' + esc(m) + "</p><p style=\"color:var(--cinza);font-size:13px\">Se a mensagem se repetir, mande este texto para o suporte.</p>");
+      });
     };
     if ($("#pf-rem")) $("#pf-rem").onclick = function () {
       sb.storage.from("avatars").remove([S.user.id + "/avatar.jpg"]).then(function () { return salvarFoto(null); })
