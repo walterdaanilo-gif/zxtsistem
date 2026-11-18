@@ -453,7 +453,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611190650";
+        sc.src = "/assets/vendor/jsqr.js?v=202611190745";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -1274,7 +1274,7 @@
       COM.autores = {}; (r.data || []).forEach(function (p) { COM.autores[p.id] = p; }); return COM.autores;
     });
     var pMods = COM.mods ? Promise.resolve(COM.mods) : sb.from("modalidades").select("id,nome").eq("ativa", true).order("ordem").then(function (r) { COM.mods = r.data || []; return COM.mods; });
-    var q = sb.from("posts").select("id,autor_id,texto,modalidade_id,fixado,oculto,created_at, post_midias(url,tipo,ordem), post_curtidas(user_id), comentarios(id,autor_id,texto,oculto,created_at)")
+    var q = sb.from("posts").select("id,autor_id,texto,modalidade_id,fixado,oculto,created_at, post_midias(url,tipo,ordem), post_curtidas(user_id), comentarios(id,autor_id,texto,oculto,created_at,resposta_de, comentario_curtidas(user_id))")
       .order("fixado", { ascending: false }).order("created_at", { ascending: false }).limit(COM.limite);
     var pDen = staff ? sb.from("denuncias").select("id,motivo,post_id,comentario_id,created_at").eq("resolvida", false) : Promise.resolve({ data: [] });
     return Promise.all([pAutores, pMods, q.then(chk), pDen]).then(function (r) {
@@ -1304,7 +1304,20 @@
         function cartaoPost(p) {
           var a = quem(p.autor_id), curtidas = (p.post_curtidas || []), curti = curtidas.some(function (c) { return c.user_id === S.user.id; });
           var midias = (p.post_midias || []).sort(function (x, y) { return x.ordem - y.ordem; });
-          var coms = (p.comentarios || []).sort(function (x, y) { return x.created_at < y.created_at ? -1 : 1; });
+          var todos = (p.comentarios || []).sort(function (x, y) { return x.created_at < y.created_at ? -1 : 1; });
+          var coms = todos.filter(function (c) { return !c.resposta_de; });
+          var respostas = {}; todos.forEach(function (c) { if (c.resposta_de) (respostas[c.resposta_de] = respostas[c.resposta_de] || []).push(c); });
+          function linhaCom(c, resp, raizId) {
+            var ca = quem(c.autor_id), cc = c.comentario_curtidas || [], eu = cc.some(function (x) { return x.user_id === S.user.id; });
+            return '<div class="com' + (resp ? " resp" : "") + (c.oculto ? " oculto" : "") + '">' + avatar(ca) +
+              '<div class="com-corpo"><p class="com-txt"><b>' + esc(ca.nome || "Membro ZXT") + "</b> " + linkar(esc(c.texto)) + "</p>" +
+              '<div class="com-meta"><span>' + tempoAtras(c.created_at) + "</span>" +
+              (cc.length ? "<span>" + cc.length + (cc.length === 1 ? " curtida" : " curtidas") + "</span>" : "") +
+              '<button class="link-mini" data-com-resp="' + raizId + '" data-com-nome="' + esc(primeiroNome(ca.nome || "Membro")) + '">Responder</button>' +
+              ((c.autor_id === S.user.id || staff) ? '<button class="link-mini" data-com-menu="' + c.id + '" data-com-autor="' + c.autor_id + '">⋯</button>' : '<button class="link-mini" data-denunciar-com="' + c.id + '">denunciar</button>') +
+              "</div></div>" +
+              '<button class="com-cur' + (eu ? " on" : "") + '" data-com-curtir="' + c.id + '" data-n="' + cc.length + '" aria-label="Curtir comentário">' + (eu ? "❤️" : "🤍") + "</button></div>";
+          }
           var meu = p.autor_id === S.user.id;
           return '<article class="post' + (p.fixado ? " fixado" : "") + (p.oculto ? " oculto" : "") + '" data-post="' + p.id + '">' +
             '<header class="post-topo">' + avatar(a) + '<div><b>' + esc(a.nome || (p.fixado ? "Equipe ZXT" : "Membro ZXT")) + "</b><span>" + tempoAtras(p.created_at) +
@@ -1321,12 +1334,13 @@
             '<button data-abrir-com="' + p.id + '">💬 ' + coms.length + "</button></div>" +
             '<div class="post-coms" id="coms-' + p.id + '"' + (coms.length > 2 ? " data-recolhido" : "") + ">" +
             coms.map(function (c, i) {
-              var ca = quem(c.autor_id);
-              return '<p class="com' + (coms.length > 2 && i < coms.length - 2 ? " antigo" : "") + (c.oculto ? " oculto" : "") + '"><b>' + esc(ca.nome || "Membro ZXT") + "</b> " + esc(c.texto) +
-                ((c.autor_id === S.user.id || staff) ? ' <button class="link-mini" data-com-menu="' + c.id + '" data-com-autor="' + c.autor_id + '">⋯</button>' : ' <button class="link-mini" data-denunciar-com="' + c.id + '">denunciar</button>') + "</p>";
+              var rs = respostas[c.id] || [];
+              return '<div class="com-bloco' + (coms.length > 2 && i < coms.length - 2 ? " antigo" : "") + '">' + linhaCom(c, false, c.id) +
+                (rs.length ? '<button class="link-mini com-ver-resp" data-ver-resp="' + c.id + '">── Ver ' + rs.length + (rs.length === 1 ? " resposta" : " respostas") + '</button>' +
+                  '<div class="com-respostas" id="resp-' + c.id + '" hidden>' + rs.map(function (r) { return linhaCom(r, true, c.id); }).join("") + "</div>" : "") + "</div>";
             }).join("") +
             (coms.length > 2 ? '<button class="link-mini ver-todos" data-ver-todos="' + p.id + '">Ver os ' + coms.length + " comentários</button>" : "") +
-            '<form class="com-novo" data-comentar="' + p.id + '"><input placeholder="Comentar..." maxlength="500"><button class="btn-mini">Enviar</button></form></div>' +
+            '<div class="com-aviso-resp" hidden></div><form class="com-novo" data-comentar="' + p.id + '"><input placeholder="Comentar..." maxlength="500"><button class="btn-mini">Enviar</button></form></div>' +
             "</article>";
         }
         var avisos = posts.filter(function (p) { return p.fixado; }), feed = posts.filter(function (p) { return !p.fixado; });
@@ -1391,6 +1405,22 @@
             return;
           }
           if ((b = e.target.closest("[data-abrir-com]"))) { var inp = tela.querySelector('[data-comentar="' + b.getAttribute("data-abrir-com") + '"] input'); if (inp) inp.focus(); return; }
+          if ((b = e.target.closest("[data-com-curtir]"))) {
+            var cid2 = b.getAttribute("data-com-curtir"), on2 = b.classList.contains("on");
+            b.classList.toggle("on"); b.textContent = on2 ? "🤍" : "❤️";
+            (on2 ? sb.from("comentario_curtidas").delete().eq("comentario_id", cid2).eq("user_id", S.user.id) : sb.from("comentario_curtidas").insert({ comentario_id: cid2, user_id: S.user.id }))
+              .then(function (x) { if (x.error) U.erro(x.error); });
+            return;
+          }
+          if ((b = e.target.closest("[data-ver-resp]"))) { var rb = $("#resp-" + b.getAttribute("data-ver-resp")); rb.hidden = !rb.hidden; b.textContent = rb.hidden ? "── Ver respostas" : "── Ocultar respostas"; return; }
+          if ((b = e.target.closest("[data-com-resp]"))) {
+            var art = b.closest("[data-post]"), fm = art.querySelector("[data-comentar]"), av = art.querySelector(".com-aviso-resp"), nm = b.getAttribute("data-com-nome");
+            fm.setAttribute("data-resp", b.getAttribute("data-com-resp"));
+            av.hidden = false; av.innerHTML = 'Respondendo a <b>' + esc(nm) + '</b> <button type="button" class="link-mini" data-cancelar-resp>cancelar</button>';
+            var ip = fm.querySelector("input"); ip.value = "@" + nm + " "; ip.focus();
+            return;
+          }
+          if ((b = e.target.closest("[data-cancelar-resp]"))) { var a2 = b.closest("[data-post]"); a2.querySelector("[data-comentar]").removeAttribute("data-resp"); a2.querySelector(".com-aviso-resp").hidden = true; a2.querySelector("[data-comentar] input").value = ""; return; }
           if ((b = e.target.closest("[data-ver-todos]"))) { var box = $("#coms-" + b.getAttribute("data-ver-todos")); box.removeAttribute("data-recolhido"); b.remove(); return; }
           if ((b = e.target.closest("[data-menu]"))) return menuPost(posts.filter(function (p) { return p.id === b.getAttribute("data-menu"); })[0]);
           if ((b = e.target.closest("[data-denunciar-com]"))) return denunciar(null, b.getAttribute("data-denunciar-com"));
@@ -1407,7 +1437,7 @@
           e.preventDefault();
           var inp = f.querySelector("input"), txt = inp.value.trim(); if (!txt) return;
           inp.disabled = true;
-          sb.from("comentarios").insert({ post_id: f.getAttribute("data-comentar"), autor_id: S.user.id, texto: txt }).then(function (x) {
+          sb.from("comentarios").insert({ post_id: f.getAttribute("data-comentar"), autor_id: S.user.id, texto: txt, resposta_de: f.getAttribute("data-resp") || null }).then(function (x) {
             inp.disabled = false; if (x.error) return U.erro(x.error); rotear();
           });
         };
