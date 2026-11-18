@@ -231,7 +231,9 @@
     var nome = (S.perfil.nome || "").trim();
     $("#quem-nome").textContent = nome ? primeiroNome(nome) : "Equipe ZXT";
     if (!nome && !S.avisouNome) { S.avisouNome = true; setTimeout(function () { U.toast("Cadastre seu nome em Meu perfil para aparecer aqui no topo."); }, 800); }
-    $("#topo-av").textContent = (nome || "ZXT").charAt(0).toUpperCase();
+    var tav = $("#topo-av");
+    if (S.perfil.foto_url) tav.innerHTML = '<img src="' + esc(S.perfil.foto_url) + '" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:block">';
+    else tav.textContent = (nome || "ZXT").charAt(0).toUpperCase();
     var dt = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza", weekday: "long", day: "2-digit", month: "long" });
     $("#topo-data").textContent = dt.charAt(0).toUpperCase() + dt.slice(1);
   }
@@ -451,7 +453,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611162310";
+        sc.src = "/assets/vendor/jsqr.js?v=202611182110";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -663,10 +665,33 @@
     });
   };
 
+  function avatarGrande(p) {
+    var est = "width:84px;height:84px;border-radius:50%;object-fit:cover;background:var(--vermelho);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:38px";
+    return p.foto_url ? '<img src="' + esc(p.foto_url) + '" alt="Sua foto" style="' + est + '">' : '<span style="' + est + '">' + esc(((p.nome || "Z").trim() || "Z").charAt(0).toUpperCase()) + "</span>";
+  }
+  function quadrada(file, lado) {
+    return new Promise(function (ok, erro) {
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () {
+        var m = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement("canvas");
+        c.width = c.height = Math.min(lado, m);
+        c.getContext("2d").drawImage(img, (img.naturalWidth - m) / 2, (img.naturalHeight - m) / 2, m, m, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (b) { b ? ok(b) : erro(new Error("Não deu para processar a foto.")); }, "image/jpeg", 0.85);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); erro(new Error("Não deu para ler essa imagem. Tente JPG ou PNG.")); };
+      img.src = url;
+    });
+  }
+
   VIEWS.perfil = function () {
     var p = S.perfil;
     function campo(id, rot, val, tipo) { return '<div class="campo"><label for="' + id + '">' + rot + '</label><input id="' + id + '" type="' + (tipo || "text") + '" value="' + esc(val || "") + '"></div>'; }
     tela.innerHTML = "<h1>Meu <em>perfil</em></h1><p class=\"sub\">" + esc(S.user.email) + "</p>" +
+      '<div class="cartao" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div id="pf-av">' + avatarGrande(p) + '</div>' +
+      '<div style="flex:1;min-width:180px"><b>Foto do perfil</b><p style="margin:4px 0 10px;color:var(--cinza);font-size:14px">Aparece no topo e na Comunidade.</p>' +
+      '<div class="busca"><label class="btn-mini" style="cursor:pointer">Trocar foto<input type="file" id="pf-arq" accept="image/*" hidden></label>' +
+      (p.foto_url ? '<button type="button" class="btn-mini claro" id="pf-rem">Remover</button>' : "") + "</div></div></div>" +
       '<form class="form" id="f-perfil">' + campo("p-nome", "Nome", p.nome) +
       '<div class="linha2">' + campo("p-whats", "WhatsApp", p.whatsapp, "tel") + campo("p-nasc", "Nascimento", p.data_nascimento, "date") + "</div>" +
       '<div class="linha2">' + campo("p-en", "Contato de emergência", p.contato_emergencia_nome) + campo("p-et", "Telefone de emergência", p.contato_emergencia_telefone, "tel") + "</div>" +
@@ -676,6 +701,29 @@
       "<h2>Seus dados (LGPD)</h2><div class=\"cartao\"><p style=\"margin:0 0 12px;color:var(--cinza)\">Baixe uma cópia de tudo que a ZXT guarda sobre você, ou peça a exclusão da conta.</p>" +
       '<div class="busca"><button class="btn-mini claro" id="exportar">Baixar meus dados</button><button class="btn-mini claro" id="trocar-senha">Trocar senha</button>' +
       '<button class="btn-mini" id="excluir">' + (p.exclusao_solicitada_em ? "Exclusão solicitada em " + U.data(p.exclusao_solicitada_em) : "Pedir exclusão da conta") + "</button></div></div>";
+    function salvarFoto(url) {
+      return sb.from("profiles").update({ foto_url: url }).eq("id", S.user.id).select().single().then(function (r) {
+        if (r.error) throw r.error;
+        S.perfil = r.data; mostrarQuem(); rotear();
+      });
+    }
+    $("#pf-arq").onchange = function () {
+      var f = this.files && this.files[0]; this.value = "";
+      if (!f) return;
+      if (!/^image\//.test(f.type)) return U.toast("Escolha uma imagem.", "erro");
+      U.toast("Enviando foto...");
+      quadrada(f, 480).then(function (blob) {
+        var path = S.user.id + "/avatar.jpg";
+        return sb.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg", upsert: true }).then(function (u) {
+          if (u.error) throw u.error;
+          return salvarFoto(sb.storage.from("avatars").getPublicUrl(path).data.publicUrl + "?v=" + Date.now());
+        });
+      }).then(function () { U.toast("Foto atualizada"); }).catch(function (er) { U.erro(er); });
+    };
+    if ($("#pf-rem")) $("#pf-rem").onclick = function () {
+      sb.storage.from("avatars").remove([S.user.id + "/avatar.jpg"]).then(function () { return salvarFoto(null); })
+        .then(function () { U.toast("Foto removida"); }).catch(function (er) { U.erro(er); });
+    };
     $("#f-perfil").onsubmit = function (e) {
       e.preventDefault();
       var dados = { nome: $("#p-nome").value.trim(), whatsapp: $("#p-whats").value.trim(), data_nascimento: $("#p-nasc").value || null,
