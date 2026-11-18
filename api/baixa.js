@@ -25,6 +25,10 @@ module.exports = async (req, res) => {
     const feitas = [], falhas = [];
     for (const c of cs) {
       if (!['em_aberto', 'atrasado'].includes(c.status)) continue;
+      // professor só dá baixa em mensalidade de aluno da própria turma
+      if (!papeis.includes('admin') && (await rpc('prof_pode_baixar', { p_prof: user.id, p_cobranca: c.id })) !== true) {
+        falhas.push({ id: c.id, erro: 'Esta mensalidade é de um aluno de outra turma.' }); continue;
+      }
       if (c.provider_id) {
         try {
           await asaas('/payments/' + c.provider_id + '/receiveInCash', { method: 'POST', body: { paymentDate: hojeFortaleza(), value: c.valor_final_centavos / 100, notifyCustomer: false } });
@@ -37,7 +41,7 @@ module.exports = async (req, res) => {
       feitas.push(c.id);
     }
     return responder(res, falhas.length && !feitas.length ? 400 : 200, { ok: true, feitas: feitas.length, falhas,
-      erro: falhas.length ? 'Não deu para marcar no Asaas: ' + falhas[0].erro : undefined });
+      erro: falhas.length ? (/outra turma/.test(falhas[0].erro) ? falhas[0].erro : 'Não deu para marcar no Asaas: ' + falhas[0].erro) : undefined });
   } catch (e) {
     console.error('baixa:', e.message);
     return responder(res, e.status && e.status < 500 ? 400 : 500, { erro: e.message || 'Não deu para dar baixa agora.' });

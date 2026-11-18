@@ -10,6 +10,8 @@ begin
   insert into auth.users (id, email, aud, role) values (a, 'ga@zxt.test', 'authenticated', 'authenticated'), (p, 'gp@zxt.test', 'authenticated', 'authenticated');
   update profiles set status = 'ativo' where id in (a, p);
   insert into user_roles values (p, 'professor');
+  insert into matriculas (aluno_id, turma_id) select a, id from turmas where ativa and not coletiva order by id limit 1;
+  update turmas set professor_id = p where id = (select turma_id from matriculas where aluno_id = a limit 1);   -- aluno da turma do professor
   insert into graduacao_requisitos (nivel_id, descricao) values (n1, 'Jab e direto com base') returning id into rq;
 
   -- professor registra graduação e marca técnica

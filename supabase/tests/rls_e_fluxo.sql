@@ -17,6 +17,7 @@ begin
   update profiles set status = 'ativo' where id = p;
   insert into planos (nome, valor_centavos) values ('Plano teste', 15000) returning id into plano;
   select id into turma from turmas where nome = 'Muay Thai · Turma 1' and ativa;
+  update turmas set professor_id = p where id = turma;   -- professor da turma dos alunos a e b
   -- aula acontecendo agora para testar check-in
   insert into aulas (turma_id, data, inicio, fim) values (turma, hoje_fortaleza() + 400, now() - interval '5 min', now() + interval '55 min') returning id into aula;
   insert into aulas (turma_id, data, inicio, fim) values (turma, hoje_fortaleza() + 401, now() + interval '1 day', now() + interval '1 day 1 hour') returning id into futura;

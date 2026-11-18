@@ -453,7 +453,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611190830";
+        sc.src = "/assets/vendor/jsqr.js?v=202611190915";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -1127,7 +1127,7 @@
       function modsDo(p) { return (p.plano_modalidades || []).map(function (x) { return x.modalidades.nome; }); }
       var lista = cs.filter(function (c) { return filtro === "todas" || (filtro === "abertas" ? (c.status === "em_aberto" || c.status === "atrasado") : c.status === filtro); });
       var ehAdmin = S.modo === "admin";
-      tela.innerHTML = "<h1><em>Financeiro</em></h1><p class=\"sub\">" + (ehAdmin ? "Planos, mensalidades e baixa manual." : "Mensalidades de todos os alunos: dê baixa no que foi pago na recepção e cobre quem está em aberto.") + "</p>" +
+      tela.innerHTML = "<h1><em>Financeiro</em></h1><p class=\"sub\">" + (ehAdmin ? "Planos, mensalidades e baixa manual." : "Mensalidades dos alunos da sua turma: dê baixa no que foi pago na recepção e cobre quem está em aberto.") + "</p>" +
         (!ehAdmin ? "" : "<h2>Planos</h2>" + (planos.length ? '<div class="lista">' + planos.map(function (p) {
           var ms = modsDo(p);
           var regraT = p.turmas_livres ? "todas as turmas" : p.max_turmas ? p.max_turmas + (p.max_turmas > 1 ? " turmas" : " turma") : "turmas definidas pela equipe";

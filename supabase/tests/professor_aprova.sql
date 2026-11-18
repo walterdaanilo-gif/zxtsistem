@@ -39,7 +39,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', p2, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   r := r || jsonb_build_object('6_plus_aparece_para_todos_os_professores', (select count(*) from cobrancas where aluno_id = plus_a) = 1,
-                               '7_ve_financeiro_de_qualquer_aluno', (select count(*) from assinaturas where aluno_id = minha) = 1);
+                               '7_nao_ve_financeiro_de_aluno_de_outra_turma', (select count(*) from assinaturas where aluno_id = minha) = 0);
   perform aprovar_aluno(outra, basico, array[bx], 10);
   execute 'reset role';
   r := r || jsonb_build_object('8_dono_da_turma_aprova', (select status from profiles where id = outra) = 'ativo');

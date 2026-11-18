@@ -11,6 +11,7 @@ begin
   update profiles set status = 'ativo', cpf = '11122233344' where id in (pf, al, outro);
   insert into assinaturas (aluno_id, plano_id) values (al, basico);
   insert into matriculas values (al, t1);
+  update turmas set professor_id = pf where id in (t1, t2);   -- turmas dele: pode mover o aluno entre elas
 
   perform set_config('request.jwt.claims', json_build_object('sub', pf, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';

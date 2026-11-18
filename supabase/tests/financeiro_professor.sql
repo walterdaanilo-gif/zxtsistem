@@ -1,4 +1,4 @@
--- Professor tem controle financeiro de qualquer aluno (ver e dar baixa), sem despesas nem planos. Tudo é desfeito.
+-- Professor tem controle financeiro só dos alunos da turma dele (ver e dar baixa), sem despesas nem planos. Tudo é desfeito.
 do $$
 declare
   pf uuid := gen_random_uuid(); minha uuid := gen_random_uuid(); outra uuid := gen_random_uuid(); al uuid := gen_random_uuid();
@@ -22,14 +22,16 @@ begin
   execute 'set local role authenticated';
   r := r || jsonb_build_object(
     '1_ve_aluno_da_turma_dele', (select count(*) from cobrancas where aluno_id = minha) = 1,
-    '2_ve_aluno_de_outra_turma', (select count(*) from cobrancas where aluno_id = outra) = 1,
-    '3_ve_assinaturas', (select count(*) from assinaturas where aluno_id in (minha, outra)) = 2,
+    '2_nao_ve_aluno_de_outra_turma', (select count(*) from cobrancas where aluno_id = outra) = 0,
+    '3_ve_assinaturas_so_da_turma', (select count(*) from assinaturas where aluno_id in (minha, outra)) = 1,
     '4_nao_ve_despesas', (select count(*) from despesas) = 0);
-  perform baixa_manual((select id from cobrancas where aluno_id = outra), 'dinheiro', 'pago na recepção');
+  begin perform baixa_manual((select id from cobrancas where aluno_id = outra), 'dinheiro', 'x'); ok := false; exception when others then ok := true; end;
+  r := r || jsonb_build_object('5a_nao_da_baixa_em_outra_turma', ok);
+  perform baixa_manual((select id from cobrancas where aluno_id = minha), 'dinheiro', 'pago na recepção');
   update planos set valor_centavos = 1 where id = pl;
   execute 'reset role';
   r := r || jsonb_build_object(
-    '5_da_baixa_em_qualquer_aluno', (select status = 'pago' and baixa_manual_por = pf from cobrancas where aluno_id = outra),
+    '5_da_baixa_no_aluno_da_turma', (select status = 'pago' and baixa_manual_por = pf from cobrancas where aluno_id = minha),
     '6_nao_altera_valor_do_plano', (select valor_centavos from planos where id = pl) = 7000,
     '7_baixa_fica_na_auditoria', exists (select 1 from auditoria where tabela = 'cobrancas' and user_id = pf));
 

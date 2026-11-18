@@ -7,6 +7,7 @@ declare
 begin
   insert into auth.users (id, email, aud, role) values (pf, 'exp@zxt.test', 'authenticated', 'authenticated'), (al, 'exa@zxt.test', 'authenticated', 'authenticated'), (al2, 'exb@zxt.test', 'authenticated', 'authenticated');
   insert into user_roles values (pf, 'professor');
+  update turmas set professor_id = pf where id = t1;   -- a aula é da turma dele
   update profiles set status = 'ativo', nome = 'Aluno Exclusao' where id = al;
   update profiles set status = 'ativo', nome = 'Prof Exclusao' where id = pf;
   update profiles set status = 'ativo', nome = 'Aluno Fica' where id = al2;
