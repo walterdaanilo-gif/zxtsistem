@@ -453,7 +453,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611241020";
+        sc.src = "/assets/vendor/jsqr.js?v=202611241130";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -2071,15 +2071,134 @@
     var d = String(c || "").replace(/\D/g, "");
     return d.length === 11 ? d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9) : String(c || "").trim();
   }
-  function certHtml(it, ano) {
-    var trat = it.trat === "o Sr." || it.trat === "a Sra." ? it.trat : "o(a) Sr(a).";
+  function certPartes(it) {
     var maius = function (t) { return String(t || "").trim().toLocaleUpperCase("pt-BR"); };
+    var trat = it.trat === "o Sr." || it.trat === "a Sra." ? it.trat : "o(a) Sr(a).";
+    return { antes: "O presidente da Zulu Xtreme Team, Mestre Paulo Cesar Da Costa, no uso de suas atribuições e funções vem por meio deste documento, diplomar " +
+        trat + " " + maius(it.nome) + ", registrado ao CPF:" + cpfFmt(it.cpf) + ", ao ",
+      negrito: "GRAU " + maius(it.grau), depois: ". Tendo atingido o nível técnico necessário para esta graduação." };
+  }
+  function certHtml(it, ano) {
+    var t = certPartes(it);
     return '<div class="cert"><img src="/assets/certificado-modelo.png" alt="">' +
       '<div class="cert-ano">' + esc(ano) + "</div>" +
-      '<p class="cert-txt">O presidente da Zulu Xtreme Team, Mestre Paulo Cesar Da Costa, no uso de suas atribuições e funções vem por meio deste documento, diplomar ' +
-      trat + " " + esc(maius(it.nome)) + ", registrado ao CPF:" + esc(cpfFmt(it.cpf)) + ", ao <b>GRAU " + esc(maius(it.grau)) +
-      "</b>. Tendo atingido o nível técnico necessário para esta graduação.</p></div>";
+      '<p class="cert-txt">' + esc(t.antes) + "<b>" + esc(t.negrito) + "</b>" + esc(t.depois) + "</p></div>";
   }
+  // imagem PNG do certificado (2000 x 1414), mesma posição e fontes da impressão
+  function certImagem(it, ano) {
+    var fontes = ["400 42px Roboto", "700 42px Roboto", "600 41px Montserrat"];
+    return Promise.all(fontes.map(function (f) { return document.fonts.load(f); })).catch(function () {}).then(function () {
+      return new Promise(function (ok, erro) {
+        var img = new Image();
+        img.onerror = function () { erro(new Error("Não deu para carregar o modelo do certificado.")); };
+        img.onload = function () {
+          var c = document.createElement("canvas"); c.width = 2000; c.height = 1414;
+          var x = c.getContext("2d"); x.drawImage(img, 0, 0, 2000, 1414);
+          x.fillStyle = "#000"; x.textBaseline = "alphabetic";
+          x.font = "600 41px Montserrat, Arial, sans-serif"; x.fillText(String(ano), 1131, 389.5);
+          var t = certPartes(it), FS = 41.8, LH = 62.6, MAXW = 1600;
+          var fonte = function (b) { return (b ? "700 " : "400 ") + FS + "px Roboto, Arial, sans-serif"; };
+          var palavras = [], colar = false;
+          [{ t: t.antes, b: false }, { t: t.negrito, b: true }, { t: t.depois, b: false }].forEach(function (r) {
+            r.t.split(/(\s+)/).forEach(function (pt) {
+              if (!pt) return;
+              if (/^\s+$/.test(pt)) { colar = false; return; }
+              if (colar && palavras.length) palavras[palavras.length - 1].push({ t: pt, b: r.b }); else palavras.push([{ t: pt, b: r.b }]);
+              colar = true;
+            });
+          });
+          var larg = function (seg) { x.font = fonte(seg.b); return x.measureText(seg.t).width; };
+          x.font = fonte(false); var esp = x.measureText(" ").width;
+          var linhas = [], atual = [], wAtual = 0;
+          palavras.forEach(function (w) {
+            var ww = w.reduce(function (a, sg) { return a + larg(sg); }, 0);
+            if (atual.length && wAtual + esp + ww > MAXW) { linhas.push({ w: atual, l: wAtual }); atual = []; wAtual = 0; }
+            wAtual += (atual.length ? esp : 0) + ww; atual.push(w);
+          });
+          if (atual.length) linhas.push({ w: atual, l: wAtual });
+          linhas.forEach(function (ln, i) {
+            var px = 1000 - ln.l / 2, py = 675 + LH * i + 45.6;
+            ln.w.forEach(function (w, k) {
+              if (k) px += esp;
+              w.forEach(function (sg) { x.font = fonte(sg.b); x.fillText(sg.t, px, py); px += x.measureText(sg.t).width; });
+            });
+          });
+          c.toBlob(function (b) { b ? ok(b) : erro(new Error("Não deu para gerar a imagem.")); }, "image/png");
+        };
+        img.src = "/assets/certificado-modelo.png";
+      });
+    });
+  }
+  function certBaixar(it, ano) {
+    return certImagem(it, ano).then(function (blob) {
+      var a = document.createElement("a"), url = URL.createObjectURL(blob);
+      a.href = url; a.download = "certificado-" + U.semAcento(String(it.nome || "aluno")).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".png";
+      document.body.appendChild(a); a.click(); a.parentNode.removeChild(a); setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    });
+  }
+  // abre a impressão com uma página A4 paisagem por certificado
+  function certImprimirLote(lista, ano) {
+    var velho = $("#cert-print"); if (velho) velho.parentNode.removeChild(velho);
+    var box = document.createElement("div"); box.id = "cert-print";
+    box.innerHTML = lista.map(function (it) { return '<section class="cert-pag">' + certHtml(it, ano) + "</section>"; }).join("");
+    document.body.appendChild(box);
+    return Promise.all(U.$$("img", box).map(function (im) { return im.complete ? Promise.resolve() : new Promise(function (ok) { im.onload = im.onerror = ok; }); }))
+      .then(function () { return document.fonts && document.fonts.ready; })
+      .then(function () {
+        window.onafterprint = function () { var b = $("#cert-print"); if (b && b.parentNode) b.parentNode.removeChild(b); window.onafterprint = null; };
+        setTimeout(function () { window.print(); }, 150);
+      });
+  }
+
+  // ---- portal do aluno: status da inscrição no exame e, depois de aprovado, o certificado
+  function abrirCertificadoAluno(idIns) {
+    return sb.rpc("meu_certificado", { p_ins: idIns }).then(function (r) {
+      if (r.error) { U.erro(r.error); return; }
+      var d = r.data || {}, it = { nome: d.nome, cpf: d.cpf, grau: d.grau, trat: d.trat };
+      modal("Seu certificado 🎓", '<div style="margin:0 -4px">' + certHtml(it, d.ano) + '</div><p style="color:var(--cinza);font-size:13px;margin:8px 0 0">Confira seu nome e CPF. Se algo estiver errado, fale com seu professor.</p>',
+        [["Fechar", null, "claro"],
+         ["Baixar imagem", function () { return certBaixar(it, d.ano).then(function () { return false; }).catch(function (e) { U.erro(e); return false; }); }, "verde"],
+         ["Imprimir / PDF", function () { certImprimirLote([it], d.ano); return false; }, "claro"]]);
+    });
+  }
+  function cartaoExame() {
+    if (S.modo !== "aluno") return;
+    return sb.rpc("minhas_inscricoes_evento").then(function (r) {
+      if (r.error || !r.data) return;
+      var ins = r.data.inscricoes || [], aberto = r.data.exame_aberto;
+      var exames = ins.filter(function (i) { return i.tipo === "exame_graduacao"; });
+      if (!exames.length && !aberto) return;
+      var pg = { pago: ["ok", "Pago"], isento: ["ok", "Isento"], pendente: ["atencao", "Pagamento pendente"], cancelado: ["neutro", "Inscrição cancelada"] };
+      var html = '<h2>Exame de graduação</h2>';
+      if (exames.length) {
+        html += exames.map(function (i) {
+          var p = pg[i.status] || ["neutro", i.status];
+          var res = i.status === "cancelado" ? "" : i.aprovado === true ? '<span class="tag ok">Aprovado 🎓</span>' : i.aprovado === false ? '<span class="tag risco">Não aprovado</span>' : '<span class="tag neutro">Aguardando resultado</span>';
+          return '<div class="cartao"><p class="olho" style="margin:0 0 6px">' + esc(i.evento) + '</p>' +
+            '<p style="margin:0 0 8px"><b>Inscrição feita ✓</b>' + (i.opcao ? " · " + esc(i.opcao) : "") + "</p>" +
+            '<div class="busca" style="margin:0 0 8px"><span class="tag ' + p[0] + '">' + esc(p[1]) + "</span>" + res + "</div>" +
+            (i.aprovado === true && i.status !== "cancelado"
+              ? '<button class="btn-mini" data-cert-aluno="' + i.id + '" type="button">Ver e baixar meu certificado</button>'
+              : '<p style="color:var(--cinza);font-size:14px;margin:0">' + (i.status === "cancelado" ? "Fale com seu professor se quiser refazer a inscrição." : "Seu certificado fica disponível aqui quando você for aprovado no exame.") + "</p>") + "</div>";
+        }).join("");
+      } else {
+        html += '<div class="cartao"><p style="margin:0 0 8px"><b>Você ainda não tem inscrição no exame.</b> ' + esc(aberto.titulo) + ' está com inscrições abertas.</p>' +
+          '<a class="btn-mini" target="_blank" rel="noopener" href="/evento/' + encodeURIComponent(aberto.slug) + '">Fazer minha inscrição</a>' +
+          '<p style="color:var(--cinza);font-size:13px;margin:8px 0 0">Já se inscreveu e não aparece aqui? Use o mesmo CPF do seu cadastro ou fale com seu professor.</p></div>';
+      }
+      var caixa = document.createElement("div"); caixa.id = "exame-card"; caixa.style.marginBottom = "16px"; caixa.innerHTML = html;
+      var velho = $("#exame-card"); if (velho && velho.parentNode) velho.parentNode.removeChild(velho);
+      var ref = tela.querySelector(".sub");
+      if (ref && ref.parentNode) ref.parentNode.insertBefore(caixa, ref.nextSibling); else tela.insertBefore(caixa, tela.firstChild);
+      caixa.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-cert-aluno]"); if (b) abrirCertificadoAluno(b.getAttribute("data-cert-aluno"));
+      });
+    });
+  }
+  (function () {
+    var graduacaoBase = VIEWS.graduacao;
+    VIEWS.graduacao = function () { return Promise.resolve(graduacaoBase()).then(function () { return Promise.resolve(cartaoExame()).catch(function () {}); }); };
+  })();
 
   function certificadosEvento(evId) {
     return Promise.all([
@@ -2098,9 +2217,15 @@
       var COR_MT = ["Branco", "Amarelo", "Amarelo ponta branca", "Verde", "Verde ponta branca", "Azul", "Azul ponta branca", "Marrom", "Marrom ponta branca", "Vermelho", "Vermelho ponta branca", "Preto", "Preto ponta branca"];
       var graus = COR_MT.slice(); ops.forEach(function (o) { if (!semGrau.test(o.nome) && graus.indexOf(limpo(o.nome)) < 0) graus.push(limpo(o.nome)); });
       function rotuloGrau(g) { var i = COR_MT.indexOf(g); return i < 0 ? g : g + " (" + (i + 1) + "º Khan)"; }
-      var chave = "zxt_cert_" + evId, salvo = {};
-      try { salvo = JSON.parse(localStorage.getItem(chave) || "{}") || {}; } catch (e) { salvo = {}; }
-      function guardar() { try { localStorage.setItem(chave, JSON.stringify(salvo)); } catch (e) {} }
+      // o que a equipe corrige aqui é salvo na inscrição: é exatamente isso que o aluno aprovado baixa
+      var filaSalvar = {};
+      function salvar(it) {
+        clearTimeout(filaSalvar[it.id]);
+        filaSalvar[it.id] = setTimeout(function () {
+          sb.from("evento_inscricoes").update({ cert_nome: it.nome, cert_cpf: it.cpf, cert_grau: it.grau, cert_trat: it.trat || null }).eq("id", it.id)
+            .then(function (x) { if (x.error) U.erro(x.error); });
+        }, 700);
+      }
 
       var itens = ins.filter(function (i) { return i.status !== "cancelado"; })
         .sort(function (a, b) { return (a.nome || "").localeCompare(b.nome || "", "pt-BR"); })
@@ -2108,7 +2233,7 @@
           var op = opPorId[i.opcao_id], sem = !op || semGrau.test(op.nome);
           var it = { id: i.id, nome: String(i.nome || "").trim(), cpf: cpfFmt(i.cpf), grau: sem ? "" : limpo(op.nome), trat: "", sem: sem,
             aprovado: i.aprovado === true, presente: !!i.presente, status: i.status, prof: exProf ? (i.respostas || {})[exProf.id] || "" : "" };
-          var sv = salvo[i.id]; if (sv) ["nome", "cpf", "grau", "trat"].forEach(function (k) { if (sv[k] != null) it[k] = sv[k]; });
+          if (i.cert_nome) it.nome = i.cert_nome; if (i.cert_cpf) it.cpf = i.cert_cpf; if (i.cert_grau) it.grau = i.cert_grau; if (i.cert_trat) it.trat = i.cert_trat;
           return it;
         });
       var porId = {}; itens.forEach(function (it) { porId[it.id] = it; });
@@ -2173,6 +2298,7 @@
         (profs.length ? '<select class="sel" id="cf-prof"><option value="">Todos os professores</option>' + profs.map(function (p) { return "<option>" + esc(p) + "</option>"; }).join("") + "</select>" : "") + "</div>" +
         '<div class="busca" style="margin:0 0 8px"><button class="btn-mini claro" id="cf-todos" type="button">Marcar todos da lista</button><button class="btn-mini claro" id="cf-limpar" type="button">Limpar marcação</button>' +
         '<select class="sel" id="cf-trat"><option value="o Sr.">Sr.</option><option value="a Sra.">Sra.</option></select><button class="btn-mini claro" id="cf-aplicar" type="button">Definir nos marcados</button></div>' +
+        '<div class="busca" style="margin:0 0 8px"><button class="btn-mini verde" id="cf-aprovar" type="button">✅ Aprovar marcados (libera o certificado ao aluno)</button><button class="btn-mini claro" id="cf-desaprovar" type="button">Tirar aprovação</button></div>' +
         '<p id="cert-info" style="color:var(--cinza);font-size:14px;margin:0 0 8px"></p>' +
         '<button class="btn btn-vermelho" id="cert-imprimir" type="button" style="margin-bottom:12px"></button>' +
         '<div id="cert-lista" class="cert-lista"></div></div></div>';
@@ -2187,9 +2313,39 @@
       $("#cf-limpar").onclick = function () { marcados = {}; desenharLista(); };
       $("#cf-aplicar").onclick = function () {
         var t = $("#cf-trat").value, n = 0;
-        itens.forEach(function (it) { if (marcados[it.id]) { it.trat = t; (salvo[it.id] = salvo[it.id] || {}).trat = t; n++; } });
+        itens.forEach(function (it) { if (marcados[it.id]) { it.trat = t; salvar(it); n++; } });
         if (!n) return U.toast("Marque quem vai receber primeiro.", "erro");
-        guardar(); desenharLista(); previa(atual); U.toast("Tratamento definido em " + n);
+        desenharLista(); previa(atual); U.toast("Tratamento definido em " + n);
+      };
+
+      function marcadosLista() { return itens.filter(function (it) { return marcados[it.id]; }); }
+      function aplicarAprovacao(sel, aprovar) {
+        var feitos = 0, erros = 0;
+        return sel.reduce(function (pr, it) {
+          return pr.then(function () {
+            var dados = aprovar ? { aprovado: true, cert_nome: it.nome, cert_cpf: it.cpf, cert_grau: it.grau, cert_trat: it.trat || null } : { aprovado: null };
+            return sb.from("evento_inscricoes").update(dados).eq("id", it.id).then(function (x) { if (x.error) erros++; else { feitos++; it.aprovado = !!aprovar; } });
+          });
+        }, Promise.resolve()).then(function () {
+          U.toast(feitos + (aprovar ? " aprovado(s). Quem tem conta recebeu o aviso." : " aprovação(ões) removida(s).") + (erros ? " " + erros + " com erro." : ""), erros ? "erro" : "ok");
+          desenharLista(); previa(atual);
+        });
+      }
+      $("#cf-aprovar").onclick = function () {
+        var sel = marcadosLista();
+        if (!sel.length) return U.toast("Marque quem foi aprovado no exame.", "erro");
+        var incompletos = sel.filter(function (it) { return !it.grau || !it.nome; });
+        if (incompletos.length) return U.toast("Falta nome ou graduação em: " + incompletos.slice(0, 3).map(function (it) { return it.nome || "sem nome"; }).join(", "), "erro");
+        var semTrat = sel.filter(function (it) { return !it.trat; }).length;
+        modal("Aprovar " + sel.length + " aluno(s)?", '<p style="color:var(--cinza)">Cada aluno que tem conta no portal passa a ver e baixar o certificado em <b>Graduação</b>, exatamente como está nesta lista (nome, CPF, graduação e Sr./Sra.), e recebe um aviso.</p>' +
+          (semTrat ? '<p style="color:#f2a20c">⚠ ' + semTrat + ' sem Sr./Sra. definido: o certificado vai sair "o(a) Sr(a).".</p>' : ""),
+          [["Voltar", null, "claro"], ["Aprovar e liberar", function () { return aplicarAprovacao(sel, true); }, "verde"]]);
+      };
+      $("#cf-desaprovar").onclick = function () {
+        var sel = marcadosLista();
+        if (!sel.length) return U.toast("Marque quem vai ficar sem aprovação.", "erro");
+        modal("Tirar a aprovação de " + sel.length + " aluno(s)?", '<p style="color:var(--cinza)">O certificado deixa de aparecer para eles até você aprovar de novo.</p>',
+          [["Voltar", null, "claro"], ["Tirar aprovação", function () { return aplicarAprovacao(sel, false); }]]);
       };
 
       var lista = $("#cert-lista");
@@ -2199,14 +2355,14 @@
       });
       lista.addEventListener("input", function (e) {
         var c = e.target.getAttribute("data-k"), lin = e.target.closest(".cert-lin"); if (!c || !lin || c === "grau" || c === "trat") return;
-        var it = porId[lin.getAttribute("data-id")]; it[c] = e.target.value; (salvo[it.id] = salvo[it.id] || {})[c] = e.target.value; guardar(); previa(it.id);
+        var it = porId[lin.getAttribute("data-id")]; it[c] = e.target.value; salvar(it); previa(it.id);
       });
       lista.addEventListener("change", function (e) {
         var lin = e.target.closest(".cert-lin"); if (!lin) return;
         var it = porId[lin.getAttribute("data-id")];
         if (e.target.hasAttribute("data-ck")) { marcados[it.id] = e.target.checked; atualizarContagem(); previa(it.id); return; }
         var c = e.target.getAttribute("data-k");
-        if (c === "grau" || c === "trat") { it[c] = e.target.value; (salvo[it.id] = salvo[it.id] || {})[c] = e.target.value; guardar(); previa(it.id); }
+        if (c === "grau" || c === "trat") { it[c] = e.target.value; salvar(it); previa(it.id); }
       });
       lista.addEventListener("focusin", function (e) { var lin = e.target.closest(".cert-lin"); if (lin && lin.getAttribute("data-id") !== atual && e.target.getAttribute("data-k")) previa(lin.getAttribute("data-id")); });
 
@@ -2219,16 +2375,7 @@
         var semTrat = sel.filter(function (it) { return !it.trat; }).length, cpfRuim = sel.filter(function (it) { return U.soDigitos(it.cpf).length !== 11; });
         if (semTrat) avisos.push(semTrat + " sem Sr./Sra. definido (vai sair \"o(a) Sr(a).\")");
         if (cpfRuim.length) avisos.push("CPF a conferir: " + cpfRuim.slice(0, 4).map(function (it) { return esc(it.nome); }).join(", ") + (cpfRuim.length > 4 ? "..." : ""));
-        function imprimir() {
-          var velho = $("#cert-print"); if (velho) velho.remove();
-          var box = document.createElement("div"); box.id = "cert-print";
-          box.innerHTML = sel.map(function (it) { return '<section class="cert-pag">' + certHtml(it, ano) + "</section>"; }).join("");
-          document.body.appendChild(box);
-          var imgs = U.$$("img", box);
-          Promise.all(imgs.map(function (im) { return im.complete ? Promise.resolve() : new Promise(function (ok) { im.onload = im.onerror = ok; }); }))
-            .then(function () { return document.fonts && document.fonts.ready; }).then(function () { setTimeout(function () { window.print(); }, 150); });
-          window.onafterprint = function () { var b = $("#cert-print"); if (b) b.remove(); window.onafterprint = null; };
-        }
+        function imprimir() { certImprimirLote(sel, ano); }
         if (!avisos.length) return imprimir();
         modal("Conferir antes de imprimir", "<ul style=\"color:var(--cinza);padding-left:18px\">" + avisos.map(function (a) { return "<li>" + a + "</li>"; }).join("") + "</ul>",
           [["Voltar e ajustar", null, "claro"], ["Imprimir assim mesmo", function () { imprimir(); }, "verde"]]);
@@ -2582,10 +2729,11 @@
     pagamento: ["Pagamentos dos alunos", "Mensalidade paga (Asaas ou baixa manual) e mensalidade em atraso", "equipe"],
     evento_inscricao: ["Inscrições em eventos", "Cada inscrição nova, pelo link, Google Forms ou manual", "equipe"],
     evento_pagamento: ["Pagamentos de eventos", "Inscrição paga", "equipe"],
+    graduacao: ["Certificado de graduação", "Quando você for aprovado no exame e o certificado ficar disponível", "aluno"],
     experimental: ["Aulas experimentais", "Cada pedido novo de aula experimental feito pelo site (administração)", "equipe"],
     cadastro: ["Novos cadastros", "Aluno ou professor aguardando aprovação", "equipe"]
   };
-  var IC_NOTIF = { aula: "📅", cobranca: "💳", comprovante: "✅", post: "💬", interacao: "❤️", pagamento: "💰", evento_inscricao: "🎟️", evento_pagamento: "💰", cadastro: "👤", experimental: "🥊", geral: "🔔" };
+  var IC_NOTIF = { aula: "📅", cobranca: "💳", comprovante: "✅", post: "💬", interacao: "❤️", pagamento: "💰", evento_inscricao: "🎟️", evento_pagamento: "💰", cadastro: "👤", experimental: "🥊", graduacao: "🎓", geral: "🔔" };
   function ehEquipe() { return S.papeis.indexOf("admin") >= 0 || S.papeis.indexOf("professor") >= 0; }
   function tempoNotif(iso) {
     var min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
