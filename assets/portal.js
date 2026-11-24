@@ -453,7 +453,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611230900";
+        sc.src = "/assets/vendor/jsqr.js?v=202611240955";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -2025,6 +2025,7 @@
 
   VIEWS.eventos = function () {
     var evId = (location.hash.match(/[?&]e=([0-9a-f-]+)/) || [])[1];
+    if (evId && /[?&]cert=1/.test(location.hash) && S.modo === "admin") return certificadosEvento(evId);
     return evId ? eventoDetalhe(evId) : eventosLista();
   };
 
@@ -2060,6 +2061,174 @@
         if (e.target.id === "novo-ev") sb.from("professores_evento").select("nome").eq("ativo", true).order("nome").then(function (x) {
           S.profsEvento = (x.data || []).map(function (p) { return p.nome; }); editorEvento(null, []);
         });
+      };
+    });
+  }
+
+
+  // =================================================================== CERTIFICADOS DE GRADUAÇÃO
+  function cpfFmt(c) {
+    var d = String(c || "").replace(/\D/g, "");
+    return d.length === 11 ? d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9) : String(c || "").trim();
+  }
+  function certHtml(it, ano) {
+    var trat = it.trat === "o Sr." || it.trat === "a Sra." ? it.trat : "o(a) Sr(a).";
+    var maius = function (t) { return String(t || "").trim().toLocaleUpperCase("pt-BR"); };
+    return '<div class="cert"><img src="/assets/certificado-modelo.png" alt="">' +
+      '<div class="cert-ano">' + esc(ano) + "</div>" +
+      '<p class="cert-txt">O presidente da Zulu Xtreme Team, Mestre Paulo Cesar Da Costa, no uso de suas atribuições e funções vem por meio deste documento, diplomar ' +
+      trat + " " + esc(maius(it.nome)) + ", registrado ao CPF:" + esc(cpfFmt(it.cpf)) + ", ao <b>GRAU " + esc(maius(it.grau)) +
+      "</b>. Tendo atingido o nível técnico necessário para esta graduação.</p></div>";
+  }
+
+  function certificadosEvento(evId) {
+    return Promise.all([
+      sb.from("eventos").select("*").eq("id", evId).single().then(chk),
+      sb.from("evento_opcoes").select("*").eq("evento_id", evId).order("ordem").then(chk),
+      sb.from("evento_inscricoes").select("*").eq("evento_id", evId).then(chk)
+    ]).then(function (r) {
+      var ev = r[0], ops = r[1], ins = r[2];
+      var ano = ev.inicio ? new Date(ev.inicio).toLocaleDateString("pt-BR", { year: "numeric", timeZone: "America/Fortaleza" }) : String(new Date().getFullYear());
+      var extras = ((ev.campos || {}).extras || []);
+      var exProf = extras.filter(function (x) { return x.tipo === "opcoes" && /professor/i.test(x.rotulo); })[0];
+      var limpo = function (n) { return String(n || "").replace(/\(.*?\)/g, "").replace(/\s+/g, " ").trim(); };
+      var semGrau = /(s[oó]|apenas)\s+participar/i;
+      var opPorId = {}; ops.forEach(function (o) { opPorId[o.id] = o; });
+      var graus = []; ops.forEach(function (o) { if (!semGrau.test(o.nome) && graus.indexOf(limpo(o.nome)) < 0) graus.push(limpo(o.nome)); });
+      var chave = "zxt_cert_" + evId, salvo = {};
+      try { salvo = JSON.parse(localStorage.getItem(chave) || "{}") || {}; } catch (e) { salvo = {}; }
+      function guardar() { try { localStorage.setItem(chave, JSON.stringify(salvo)); } catch (e) {} }
+
+      var itens = ins.filter(function (i) { return i.status !== "cancelado"; })
+        .sort(function (a, b) { return (a.nome || "").localeCompare(b.nome || "", "pt-BR"); })
+        .map(function (i) {
+          var op = opPorId[i.opcao_id], sem = !op || semGrau.test(op.nome);
+          var it = { id: i.id, nome: String(i.nome || "").trim(), cpf: cpfFmt(i.cpf), grau: sem ? "" : limpo(op.nome), trat: "", sem: sem,
+            aprovado: i.aprovado === true, presente: !!i.presente, status: i.status, prof: exProf ? (i.respostas || {})[exProf.id] || "" : "" };
+          var sv = salvo[i.id]; if (sv) ["nome", "cpf", "grau", "trat"].forEach(function (k) { if (sv[k] != null) it[k] = sv[k]; });
+          return it;
+        });
+      var porId = {}; itens.forEach(function (it) { porId[it.id] = it; });
+      var f = { q: "", tipo: "", grau: "", prof: "" }, marcados = {}, atual = null;
+
+      function visiveis() {
+        var q = U.semAcento(f.q).toLowerCase(), qd = U.soDigitos(f.q);
+        return itens.filter(function (it) {
+          if (f.tipo === "aprovados" && !it.aprovado) return false;
+          if (f.tipo === "presentes" && !it.presente) return false;
+          if (f.tipo === "pagos" && it.status !== "pago" && it.status !== "isento") return false;
+          if (f.grau && it.grau !== f.grau) return false;
+          if (f.prof && it.prof !== f.prof) return false;
+          if (q && U.semAcento(it.nome).toLowerCase().indexOf(q) < 0 && !(qd.length >= 3 && U.soDigitos(it.cpf).indexOf(qd) >= 0)) return false;
+          return true;
+        });
+      }
+      function qtd() { return itens.filter(function (it) { return marcados[it.id]; }).length; }
+      function linha(it) {
+        var opcoesGrau = graus.slice(); if (it.grau && opcoesGrau.indexOf(it.grau) < 0) opcoesGrau.push(it.grau);
+        var cpfOk = U.soDigitos(it.cpf).length === 11;
+        return '<div class="cert-lin' + (atual === it.id ? " ativa" : "") + '" data-id="' + it.id + '">' +
+          '<label class="cert-ck"><input type="checkbox" data-ck' + (marcados[it.id] ? " checked" : "") + ' aria-label="Selecionar"></label>' +
+          '<div class="cert-campos"><input class="cert-nome" data-k="nome" value="' + esc(it.nome) + '" aria-label="Nome">' +
+          '<div class="cert-linha3"><input data-k="cpf" value="' + esc(it.cpf) + '" inputmode="numeric" aria-label="CPF"' + (cpfOk ? "" : ' style="border-color:#f2a20c"') + ">" +
+          '<select class="sel" data-k="grau" aria-label="Graduação"><option value="">' + (it.sem ? "Só exame: escolha" : "Graduação") + "</option>" +
+          opcoesGrau.map(function (g) { return "<option" + (g === it.grau ? " selected" : "") + ">" + esc(g) + "</option>"; }).join("") + "</select>" +
+          '<select class="sel" data-k="trat" aria-label="Tratamento"><option value="">Sr(a).</option><option value="o Sr."' + (it.trat === "o Sr." ? " selected" : "") + '>Sr.</option><option value="a Sra."' + (it.trat === "a Sra." ? " selected" : "") + ">Sra.</option></select></div>" +
+          '<div class="cert-tags">' + (it.aprovado ? '<span class="tag ok">Aprovado</span>' : "") + (it.presente ? '<span class="tag info">Presente</span>' : "") +
+          (it.status === "pago" || it.status === "isento" ? "" : '<span class="tag atencao">Pgto pendente</span>') + (it.sem ? '<span class="tag neutro">Só exame</span>' : "") +
+          (cpfOk ? "" : '<span class="tag atencao">CPF a conferir</span>') + "</div></div>" +
+          '<button class="btn-mini claro" data-prev type="button">Prévia</button></div>';
+      }
+      function desenharLista() {
+        var v = visiveis();
+        $("#cert-lista").innerHTML = v.length ? v.map(linha).join("") : '<div class="vazio-box">Ninguém nesse filtro.</div>';
+        atualizarContagem();
+      }
+      function atualizarContagem() {
+        var n = qtd(), b = $("#cert-imprimir");
+        b.textContent = "🖨️ Imprimir " + n + " certificado" + (n === 1 ? "" : "s"); b.disabled = !n;
+        $("#cert-info").textContent = visiveis().length + " na lista · " + n + " marcado(s)";
+      }
+      function previa(id) {
+        var it = porId[id] || visiveis()[0] || itens[0];
+        if (!it) { $("#cert-prev").innerHTML = ""; return; }
+        atual = it.id;
+        $("#cert-prev").innerHTML = certHtml(it, ano);
+        $("#cert-prev-nome").textContent = "Prévia: " + it.nome;
+        U.$$(".cert-lin").forEach(function (l) { l.classList.toggle("ativa", l.getAttribute("data-id") === atual); });
+      }
+
+      var optGrau = '<option value="">Todas as graduações</option>' + graus.map(function (g) { return "<option>" + esc(g) + "</option>"; }).join("");
+      var profs = exProf ? exProf.opcoes || [] : [];
+      tela.innerHTML = '<p style="margin:0 0 6px"><a href="#/eventos?e=' + evId + '" style="color:var(--cinza)">← Voltar ao evento</a></p>' +
+        "<h1>Certificados de <em>graduação</em></h1><p class=\"sub\">" + esc(ev.titulo) + ". Marque quem vai receber, confira a prévia e imprima todos de uma vez (ou salve em PDF).</p>" +
+        '<div class="cert-grade"><div class="cert-prev-box"><p class="olho" id="cert-prev-nome" style="margin:0 0 8px"></p><div id="cert-prev"></div>' +
+        '<p style="color:var(--cinza-2);font-size:13px;margin:8px 0 0">Impressão em A4 paisagem. No diálogo de impressão, deixe margens em "Nenhuma" e ative "Gráficos de segundo plano".</p></div>' +
+        '<div class="cert-col"><div class="ev-filtros"><input id="cf-q" placeholder="Buscar nome ou CPF">' +
+        '<select class="sel" id="cf-tipo"><option value="">Todos</option><option value="aprovados">Só aprovados</option><option value="presentes">Só presentes</option><option value="pagos">Só pagos ou isentos</option></select>' +
+        '<select class="sel" id="cf-grau">' + optGrau + "</select>" +
+        (profs.length ? '<select class="sel" id="cf-prof"><option value="">Todos os professores</option>' + profs.map(function (p) { return "<option>" + esc(p) + "</option>"; }).join("") + "</select>" : "") + "</div>" +
+        '<div class="busca" style="margin:0 0 8px"><button class="btn-mini claro" id="cf-todos" type="button">Marcar todos da lista</button><button class="btn-mini claro" id="cf-limpar" type="button">Limpar marcação</button>' +
+        '<select class="sel" id="cf-trat"><option value="o Sr.">Sr.</option><option value="a Sra.">Sra.</option></select><button class="btn-mini claro" id="cf-aplicar" type="button">Definir nos marcados</button></div>' +
+        '<p id="cert-info" style="color:var(--cinza);font-size:14px;margin:0 0 8px"></p>' +
+        '<button class="btn btn-vermelho" id="cert-imprimir" type="button" style="margin-bottom:12px"></button>' +
+        '<div id="cert-lista" class="cert-lista"></div></div></div>';
+
+      desenharLista(); previa(null);
+
+      var tq; $("#cf-q").oninput = function () { clearTimeout(tq); var v = this.value; tq = setTimeout(function () { f.q = v; desenharLista(); }, 250); };
+      $("#cf-tipo").onchange = function () { f.tipo = this.value; desenharLista(); };
+      $("#cf-grau").onchange = function () { f.grau = this.value; desenharLista(); };
+      if ($("#cf-prof")) $("#cf-prof").onchange = function () { f.prof = this.value; desenharLista(); };
+      $("#cf-todos").onclick = function () { visiveis().forEach(function (it) { marcados[it.id] = true; }); desenharLista(); };
+      $("#cf-limpar").onclick = function () { marcados = {}; desenharLista(); };
+      $("#cf-aplicar").onclick = function () {
+        var t = $("#cf-trat").value, n = 0;
+        itens.forEach(function (it) { if (marcados[it.id]) { it.trat = t; (salvo[it.id] = salvo[it.id] || {}).trat = t; n++; } });
+        if (!n) return U.toast("Marque quem vai receber primeiro.", "erro");
+        guardar(); desenharLista(); previa(atual); U.toast("Tratamento definido em " + n);
+      };
+
+      var lista = $("#cert-lista");
+      lista.addEventListener("click", function (e) {
+        var lin = e.target.closest(".cert-lin"); if (!lin) return;
+        if (e.target.closest("[data-prev]")) previa(lin.getAttribute("data-id"));
+      });
+      lista.addEventListener("input", function (e) {
+        var c = e.target.getAttribute("data-k"), lin = e.target.closest(".cert-lin"); if (!c || !lin || c === "grau" || c === "trat") return;
+        var it = porId[lin.getAttribute("data-id")]; it[c] = e.target.value; (salvo[it.id] = salvo[it.id] || {})[c] = e.target.value; guardar(); previa(it.id);
+      });
+      lista.addEventListener("change", function (e) {
+        var lin = e.target.closest(".cert-lin"); if (!lin) return;
+        var it = porId[lin.getAttribute("data-id")];
+        if (e.target.hasAttribute("data-ck")) { marcados[it.id] = e.target.checked; atualizarContagem(); previa(it.id); return; }
+        var c = e.target.getAttribute("data-k");
+        if (c === "grau" || c === "trat") { it[c] = e.target.value; (salvo[it.id] = salvo[it.id] || {})[c] = e.target.value; guardar(); previa(it.id); }
+      });
+      lista.addEventListener("focusin", function (e) { var lin = e.target.closest(".cert-lin"); if (lin && lin.getAttribute("data-id") !== atual && e.target.getAttribute("data-k")) previa(lin.getAttribute("data-id")); });
+
+      $("#cert-imprimir").onclick = function () {
+        var sel = itens.filter(function (it) { return marcados[it.id]; });
+        if (!sel.length) return;
+        var semGrauEsc = sel.filter(function (it) { return !it.grau || !it.nome; });
+        if (semGrauEsc.length) return U.toast("Falta nome ou graduação em: " + semGrauEsc.slice(0, 3).map(function (it) { return it.nome || "sem nome"; }).join(", ") + (semGrauEsc.length > 3 ? "..." : ""), "erro");
+        var avisos = [];
+        var semTrat = sel.filter(function (it) { return !it.trat; }).length, cpfRuim = sel.filter(function (it) { return U.soDigitos(it.cpf).length !== 11; });
+        if (semTrat) avisos.push(semTrat + " sem Sr./Sra. definido (vai sair \"o(a) Sr(a).\")");
+        if (cpfRuim.length) avisos.push("CPF a conferir: " + cpfRuim.slice(0, 4).map(function (it) { return esc(it.nome); }).join(", ") + (cpfRuim.length > 4 ? "..." : ""));
+        function imprimir() {
+          var velho = $("#cert-print"); if (velho) velho.remove();
+          var box = document.createElement("div"); box.id = "cert-print";
+          box.innerHTML = sel.map(function (it) { return '<section class="cert-pag">' + certHtml(it, ano) + "</section>"; }).join("");
+          document.body.appendChild(box);
+          var imgs = U.$$("img", box);
+          Promise.all(imgs.map(function (im) { return im.complete ? Promise.resolve() : new Promise(function (ok) { im.onload = im.onerror = ok; }); }))
+            .then(function () { return document.fonts && document.fonts.ready; }).then(function () { setTimeout(function () { window.print(); }, 150); });
+          window.onafterprint = function () { var b = $("#cert-print"); if (b) b.remove(); window.onafterprint = null; };
+        }
+        if (!avisos.length) return imprimir();
+        modal("Conferir antes de imprimir", "<ul style=\"color:var(--cinza);padding-left:18px\">" + avisos.map(function (a) { return "<li>" + a + "</li>"; }).join("") + "</ul>",
+          [["Voltar e ajustar", null, "claro"], ["Imprimir assim mesmo", function () { imprimir(); }, "verde"]]);
       };
     });
   }
@@ -2134,7 +2303,7 @@
           '<div class="kpi"><b>' + U.reais(rs.previsto) + "</b><span>Previsto total</span></div></div>" +
         '<p style="color:var(--cinza-2);font-size:13px;margin:8px 0 0">Previsto = soma dos valores das inscrições não canceladas. A receber = previsto das pendentes.' +
           (rs.aConfirmar ? ' <b style="color:#f2a20c">⚠️ ' + rs.aConfirmar + " inscrição(ões) em opção sem valor definido: não entram no previsto.</b>" : "") + "</p>" +
-        (admin ? '<div class="busca" style="margin-top:12px"><button class="btn-mini claro" id="ev-editar">Editar evento e valores</button><button class="btn-mini claro" id="ev-add">Adicionar inscrição</button><button class="btn-mini claro" id="ev-csv">Baixar planilha</button></div>'
+        (admin ? '<div class="busca" style="margin-top:12px"><button class="btn-mini claro" id="ev-editar">Editar evento e valores</button><button class="btn-mini claro" id="ev-add">Adicionar inscrição</button><button class="btn-mini claro" id="ev-csv">Baixar planilha</button>' + (exame && S.modo === "admin" ? '<button class="btn-mini" id="ev-cert">🎓 Certificados</button>' : "") + '</div>'
                : '<div class="busca" style="margin-top:12px"><button class="btn-mini claro" id="ev-csv">Baixar planilha</button></div>') +
         quebra(exame ? "Por prajied" : "Por opção", function (i) { return opNome[i.opcao_id]; }, ops.map(function (o) { return o.nome; })) +
         (exSel ? quebra("Por " + exSel.rotulo.toLowerCase(), function (i) { return (i.respostas || {})[exSel.id]; }, exSel.opcoes) : "") +
@@ -2200,6 +2369,7 @@
       }
       if (admin) {
         $("#ev-editar").onclick = function () { editorEvento(ev, ops); };
+        if ($("#ev-cert")) $("#ev-cert").onclick = function () { location.hash = "#/eventos?e=" + evId + "&cert=1"; };
         $("#ev-add").onclick = function () { inscricaoManual(ev, ops, extras); };
       }
       tela.onclick = function (e) {

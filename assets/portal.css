@@ -356,3 +356,40 @@ a.filtro { text-decoration: none; display: inline-block; }
 .com-aviso-resp { font-size: 13px; color: var(--cinza); margin-top: 8px; }
 .com-bloco.antigo { display: none; }
 .post-coms:not([data-recolhido]) .com-bloco.antigo { display: block; }
+
+/* certificados de graduação: medidas em cqw (1% da largura do certificado), igual ao modelo de 2000 px */
+.cert { position: relative; container-type: inline-size; width: 100%; aspect-ratio: 2000 / 1414; overflow: hidden; background: #fff; color: #000; }
+.cert > img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.cert-ano { position: absolute; left: 56.5cqw; top: 17.75cqw; font: 600 2.05cqw/1 Montserrat, Arial, sans-serif; color: #000; }
+.cert-txt { position: absolute; left: 10cqw; width: 80cqw; top: 33.75cqw; margin: 0; text-align: center; font: 400 2.09cqw/3.13cqw Roboto, Arial, sans-serif; color: #000; }
+.cert-txt b { font-weight: 700; }
+.cert-grade { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.cert-prev-box { min-width: 0; }
+@media (min-width: 1000px) {
+  .cert-grade { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; }
+  .cert-prev-box { position: sticky; top: 12px; order: 2; }
+}
+.cert-col { min-width: 0; }
+.cert-lista { display: grid; gap: 8px; }
+.cert-lin { display: flex; gap: 10px; align-items: flex-start; padding: 10px; background: #141414; border: 1px solid #262626; }
+.cert-lin.ativa { border-color: var(--vermelho); }
+.cert-ck { padding-top: 6px; }
+.cert-ck input { width: 20px; height: 20px; }
+.cert-campos { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.cert-campos input, .cert-campos select { width: 100%; min-width: 0; font: inherit; font-size: 15px; color: #fff; background: #0a0a0a; border: 1px solid #2e2e2e; padding: 8px 9px; }
+.cert-linha3 { display: grid; grid-template-columns: 1.2fr 1.4fr .8fr; gap: 6px; }
+.cert-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+#cert-print { display: none; }
+@media print {
+  @page { size: A4 landscape; margin: 0; }
+  body > *:not(#cert-print) { display: none !important; }
+  html, body { background: #fff !important; }
+  #cert-print { display: block !important; }
+  .cert-pag { width: 297mm; height: 210mm; break-after: page; page-break-after: always; overflow: hidden; }
+  .cert-pag:last-child { break-after: auto; page-break-after: auto; }
+  .cert-pag .cert { width: 297mm; height: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+@media (max-width: 640px) {
+  .cert-linha3 { grid-template-columns: 1fr 1fr; }
+  .cert-linha3 input { grid-column: 1 / -1; }
+}
