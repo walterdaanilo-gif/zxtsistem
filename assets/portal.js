@@ -453,7 +453,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611241145";
+        sc.src = "/assets/vendor/jsqr.js?v=202611240400";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -2218,8 +2218,8 @@
       var limpo = function (n) { return String(n || "").replace(/\(.*?\)/g, "").replace(/\s+/g, " ").trim(); };
       var semGrau = /(s[oó]|apenas)\s+participar/i;
       var opPorId = {}; ops.forEach(function (o) { opPorId[o.id] = o; });
-      // todas as cores de prajied do Muay Thai (1º ao 13º Khan); o valor é a cor que sai no certificado
-      var COR_MT = ["Branco", "Amarelo", "Amarelo ponta branca", "Verde", "Verde ponta branca", "Azul", "Azul ponta branca", "Marrom", "Marrom ponta branca", "Vermelho", "Vermelho ponta branca", "Preto", "Preto ponta branca"];
+      // todas as cores de prajied do Muay Thai (1º ao 14º Khan); o valor é a cor que sai no certificado
+      var COR_MT = ["Branco", "Amarelo", "Amarelo ponta branca", "Verde", "Verde ponta branca", "Azul", "Azul ponta branca", "Marrom", "Marrom ponta branca", "Vermelho", "Vermelho ponta branca", "Preto", "Preto ponta branca", "Prata"];
       var graus = COR_MT.slice(); ops.forEach(function (o) { if (!semGrau.test(o.nome) && graus.indexOf(limpo(o.nome)) < 0) graus.push(limpo(o.nome)); });
       function rotuloGrau(g) { var i = COR_MT.indexOf(g); return i < 0 ? g : g + " (" + (i + 1) + "º Khan)"; }
       // o que a equipe corrige aqui é salvo na inscrição: é exatamente isso que o aluno aprovado baixa
