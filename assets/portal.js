@@ -453,7 +453,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611241130";
+        sc.src = "/assets/vendor/jsqr.js?v=202611241145";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -2207,6 +2207,11 @@
       sb.from("evento_inscricoes").select("*").eq("evento_id", evId).then(chk)
     ]).then(function (r) {
       var ev = r[0], ops = r[1], ins = r[2];
+      if (ev.tipo !== "exame_graduacao") {
+        tela.innerHTML = '<p style="margin:0 0 6px"><a href="#/eventos?e=' + evId + '" style="color:var(--cinza)">← Voltar ao evento</a></p><h1>Certificados</h1>' +
+          '<div class="cartao"><p style="margin:0 0 8px"><b>Este evento não é um exame de graduação.</b></p><p style="margin:0;color:var(--cinza)">O certificado de graduação (com prajied e grau) só vale para exame de graduação. Para aulão ou outro tipo de evento é preciso um modelo de certificado próprio.</p></div>';
+        return;
+      }
       var ano = ev.inicio ? new Date(ev.inicio).toLocaleDateString("pt-BR", { year: "numeric", timeZone: "America/Fortaleza" }) : String(new Date().getFullYear());
       var extras = ((ev.campos || {}).extras || []);
       var exProf = extras.filter(function (x) { return x.tipo === "opcoes" && /professor/i.test(x.rotulo); })[0];
