@@ -453,7 +453,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611240955";
+        sc.src = "/assets/vendor/jsqr.js?v=202611241020";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -2094,7 +2094,10 @@
       var limpo = function (n) { return String(n || "").replace(/\(.*?\)/g, "").replace(/\s+/g, " ").trim(); };
       var semGrau = /(s[oó]|apenas)\s+participar/i;
       var opPorId = {}; ops.forEach(function (o) { opPorId[o.id] = o; });
-      var graus = []; ops.forEach(function (o) { if (!semGrau.test(o.nome) && graus.indexOf(limpo(o.nome)) < 0) graus.push(limpo(o.nome)); });
+      // todas as cores de prajied do Muay Thai (1º ao 13º Khan); o valor é a cor que sai no certificado
+      var COR_MT = ["Branco", "Amarelo", "Amarelo ponta branca", "Verde", "Verde ponta branca", "Azul", "Azul ponta branca", "Marrom", "Marrom ponta branca", "Vermelho", "Vermelho ponta branca", "Preto", "Preto ponta branca"];
+      var graus = COR_MT.slice(); ops.forEach(function (o) { if (!semGrau.test(o.nome) && graus.indexOf(limpo(o.nome)) < 0) graus.push(limpo(o.nome)); });
+      function rotuloGrau(g) { var i = COR_MT.indexOf(g); return i < 0 ? g : g + " (" + (i + 1) + "º Khan)"; }
       var chave = "zxt_cert_" + evId, salvo = {};
       try { salvo = JSON.parse(localStorage.getItem(chave) || "{}") || {}; } catch (e) { salvo = {}; }
       function guardar() { try { localStorage.setItem(chave, JSON.stringify(salvo)); } catch (e) {} }
@@ -2132,7 +2135,7 @@
           '<div class="cert-campos"><input class="cert-nome" data-k="nome" value="' + esc(it.nome) + '" aria-label="Nome">' +
           '<div class="cert-linha3"><input data-k="cpf" value="' + esc(it.cpf) + '" inputmode="numeric" aria-label="CPF"' + (cpfOk ? "" : ' style="border-color:#f2a20c"') + ">" +
           '<select class="sel" data-k="grau" aria-label="Graduação"><option value="">' + (it.sem ? "Só exame: escolha" : "Graduação") + "</option>" +
-          opcoesGrau.map(function (g) { return "<option" + (g === it.grau ? " selected" : "") + ">" + esc(g) + "</option>"; }).join("") + "</select>" +
+          opcoesGrau.map(function (g) { return "<option" + (g === it.grau ? " selected" : "") + ' value="' + esc(g) + '">' + esc(rotuloGrau(g)) + "</option>"; }).join("") + "</select>" +
           '<select class="sel" data-k="trat" aria-label="Tratamento"><option value="">Sr(a).</option><option value="o Sr."' + (it.trat === "o Sr." ? " selected" : "") + '>Sr.</option><option value="a Sra."' + (it.trat === "a Sra." ? " selected" : "") + ">Sra.</option></select></div>" +
           '<div class="cert-tags">' + (it.aprovado ? '<span class="tag ok">Aprovado</span>' : "") + (it.presente ? '<span class="tag info">Presente</span>' : "") +
           (it.status === "pago" || it.status === "isento" ? "" : '<span class="tag atencao">Pgto pendente</span>') + (it.sem ? '<span class="tag neutro">Só exame</span>' : "") +
@@ -2158,7 +2161,7 @@
         U.$$(".cert-lin").forEach(function (l) { l.classList.toggle("ativa", l.getAttribute("data-id") === atual); });
       }
 
-      var optGrau = '<option value="">Todas as graduações</option>' + graus.map(function (g) { return "<option>" + esc(g) + "</option>"; }).join("");
+      var optGrau = '<option value="">Todas as graduações</option>' + graus.map(function (g) { return '<option value="' + esc(g) + '">' + esc(rotuloGrau(g)) + "</option>"; }).join("");
       var profs = exProf ? exProf.opcoes || [] : [];
       tela.innerHTML = '<p style="margin:0 0 6px"><a href="#/eventos?e=' + evId + '" style="color:var(--cinza)">← Voltar ao evento</a></p>' +
         "<h1>Certificados de <em>graduação</em></h1><p class=\"sub\">" + esc(ev.titulo) + ". Marque quem vai receber, confira a prévia e imprima todos de uma vez (ou salve em PDF).</p>" +
