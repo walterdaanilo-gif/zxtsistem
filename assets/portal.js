@@ -161,6 +161,13 @@
         '<p class="dica" style="margin-top:18px">Pagamento processado pelo Asaas. A cobrança se repete todo mês na mesma data, e você pode cancelar falando com a recepção.</p>' +
         '<button class="link" id="ja-paguei">Já paguei, atualizar</button></div>';
       $("#ja-paguei").onclick = function () { verificar(true); };
+      sb.from("notificacoes").select("id,titulo,corpo").eq("user_id", S.user.id).eq("tipo", "cobranca").eq("lida", false).order("created_at", { ascending: false }).limit(1).then(function (rn) {
+        var n = (rn.data || [])[0]; if (!n) return;
+        var c = document.createElement("div"); c.className = "cartao";
+        c.innerHTML = '<p class="olho" style="margin:0 0 4px">🔔 Lembrete da equipe</p><p style="margin:0"><b>' + esc(n.titulo) + '</b><br><span style="color:var(--cinza)">' + esc(n.corpo || "") + "</span></p>";
+        var box = tela.querySelector(".pagar"); if (box) box.insertBefore(c, box.children[2] || null);
+        sb.from("notificacoes").update({ lida: true }).eq("id", n.id).then(function () {});
+      });
       tela.onclick = function (e) {
         var b = e.target.closest("[data-forma]"); if (!b) return;
         U.$$(".forma").forEach(function (x) { x.classList.toggle("sel", x === b); });
@@ -453,7 +460,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611262130";
+        sc.src = "/assets/vendor/jsqr.js?v=202611262230";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -1055,10 +1062,26 @@
       : '<span class="tag risco">⚠ Não gerou o pagamento</span> O aluno ainda não escolheu Pix, cartão ou boleto. O acesso só libera depois que pagar.';
     return '<div class="cartao" style="margin:0 0 10px;background:#0d0d0d"><p style="margin:0 0 4px;font-size:13px;color:var(--cinza)">Pagamento do cadastro · ' + esc(plano ? plano.nome : "") + " " + valor + "</p>" +
       '<p style="margin:0 0 8px;font-size:14px">' + linha + "</p>" +
-      '<div class="busca" style="margin:0"><button class="btn-mini claro" data-conferir-pg="' + p.id + '" type="button">Conferir no Asaas</button>' +
+      '<div class="busca" style="margin:0"><button class="btn-mini" data-cobrar-sis="' + p.id + '" data-nome="' + esc(primeiroNome(p.nome)) + '" type="button">Cobrar pelo sistema</button>' +
+      '<button class="btn-mini claro" data-conferir-pg="' + p.id + '" type="button">Conferir no Asaas</button>' +
       (p.whatsapp ? '<a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(p.whatsapp, "Oi, " + primeiroNome(p.nome) + "! Falta só o pagamento do seu plano" + (plano ? " " + plano.nome + " (" + valor + ")" : "") +
-        " para liberar seu acesso à ZXT. Entre em " + location.origin + "/entrar com seu e-mail e senha e escolha Pix, cartão ou boleto. Qualquer dúvida, é só chamar 🥊") + '">Cobrar no WhatsApp</a>' : "") + "</div></div>";
+        " para liberar seu acesso à ZXT. Entre em " + location.origin + "/entrar com seu e-mail e senha e escolha Pix, cartão ou boleto. Qualquer dúvida, é só chamar 🥊") + '">WhatsApp</a>' : "") + "</div></div>";
   }
+  // "Cobrar pelo sistema": notificação no sino e no celular do aluno
+  function cobrarPeloSistema(alunoId, nome, btn) {
+    if (btn) btn.disabled = true;
+    return sb.rpc("cobrar_aluno", { p_aluno: alunoId }).then(function (x) {
+      if (btn) btn.disabled = false;
+      if (x.error) return U.erro(x.error);
+      var d = x.data || {};
+      if (!d.enviado) return U.toast(d.motivo || "Não foi possível enviar a cobrança.", "erro");
+      U.toast("Cobrança enviada para " + nome + (d.celular ? " (sino e celular)" : " (sino do portal; ele ainda não ativou o aviso no celular)"));
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-cobrar-sis]");
+    if (b) cobrarPeloSistema(b.getAttribute("data-cobrar-sis"), b.getAttribute("data-nome") || "o aluno", b);
+  });
   function conferirPagamentoAluno(alunoId, nome) {
     return sb.auth.getSession().then(function (se) {
       return fetch("/api/pagamento-aluno", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + se.data.session.access_token }, body: JSON.stringify({ aluno_id: alunoId }) });
@@ -1185,7 +1208,8 @@
             (l.sit === "emdia" && l.ult && l.ult.pago_em ? " · último pagamento " + U.data(l.ult.pago_em) : "") + (l.sit === "sem" ? " · 1ª mensalidade a partir de " + U.data(l.a.inicio) : "") +
             (l.abertas.length ? " · " + U.reais(l.total) + " em aberto, vence " + U.data(l.venc) : "") + '</p></div><div class="acoes">' + TAG[l.sit] +
             (l.link ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + esc(l.link) + '">Abrir cobrança</a>' : "") +
-            (l.abertas.length && pr.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(pr.whatsapp, "Oi, " + primeiroNome(pr.nome) + "! Passando pra lembrar da mensalidade da ZXT de " + U.reais(l.total) + (l.link ? ". Pague por aqui: " + l.link : ". Pague pelo portal: " + location.origin + "/app")) + '">Cobrar</a>' : "") + "</div></div>";
+            (l.abertas.length ? ' <button class="btn-mini" data-cobrar-sis="' + l.a.aluno_id + '" data-nome="' + esc(primeiroNome(pr.nome)) + '" type="button">Cobrar pelo sistema</button>' : "") +
+            (l.abertas.length && pr.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(pr.whatsapp, "Oi, " + primeiroNome(pr.nome) + "! Passando pra lembrar da mensalidade da ZXT de " + U.reais(l.total) + (l.link ? ". Pague por aqui: " + l.link : ". Pague pelo portal: " + location.origin + "/app")) + '">WhatsApp</a>' : "") + "</div></div>";
         }).join("") + "</div>" : '<div class="vazio-box">Nenhum aluno nesse filtro.</div>');
       function ir() { location.hash = "#/cobrancas?v=alunos" + ($("#pa-st").value ? "&st=" + $("#pa-st").value : "") + ($("#pa-q").value.trim() ? "&q=" + encodeURIComponent($("#pa-q").value.trim()) : ""); }
       $("#pa-st").onchange = ir;
@@ -1224,7 +1248,8 @@
           return '<div class="item' + (c.status === "atrasado" ? " destaque" : "") + '"><div><h3>' + esc(nome) + " · " + U.reais(c.valor_final_centavos) + "</h3><p>" + esc(c.descricao) + " · vence " + U.data(c.vencimento) +
             (c.baixa_manual_por ? " · baixa manual (" + esc(c.forma_pagamento) + ")" : "") + "</p></div><div class=\"acoes\">" + tagStatus(c.status) +
             ((c.status === "em_aberto" || c.status === "atrasado") ? ' <button class="btn-mini verde" data-baixa="' + c.id + '">Dar baixa</button>' +
-              (c.profiles && c.profiles.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(c.profiles.whatsapp, "Oi, " + primeiroNome(nome) + "! Passando pra lembrar da mensalidade da ZXT de " + U.reais(c.valor_final_centavos) + " com vencimento em " + U.data(c.vencimento) + ". Qualquer dúvida, chama aqui 🥊") + '">Cobrar no WhatsApp</a>' : "") : "") + "</div></div>";
+              (c.aluno_id ? ' <button class="btn-mini" data-cobrar-sis="' + c.aluno_id + '" data-nome="' + esc(primeiroNome(nome)) + '" type="button">Cobrar pelo sistema</button>' : "") +
+              (c.profiles && c.profiles.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(c.profiles.whatsapp, "Oi, " + primeiroNome(nome) + "! Passando pra lembrar da mensalidade da ZXT de " + U.reais(c.valor_final_centavos) + " com vencimento em " + U.data(c.vencimento) + ". Qualquer dúvida, chama aqui 🥊") + '">WhatsApp</a>' : "") : "") + "</div></div>";
         }).join("") + "</div>" : '<div class="vazio-box">Nada nesse filtro.</div>');
       $("#cb-f").onchange = function () { location.hash = "#/cobrancas?st=" + this.value; };
       if (ehAdmin) $("#gerar").onclick = function () {
