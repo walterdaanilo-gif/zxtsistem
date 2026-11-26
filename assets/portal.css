@@ -393,3 +393,7 @@ a.filtro { text-decoration: none; display: inline-block; }
   .cert-linha3 { grid-template-columns: 1fr 1fr; }
   .cert-linha3 input { grid-column: 1 / -1; }
 }
+
+/* aba Mensalidades com pagamento em atraso */
+#nav a.tem-divida { position: relative; }
+#nav a.tem-divida::after { content: "!"; position: absolute; top: 2px; right: 8px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #e30613; color: #fff; font: 700 11px/16px var(--display, sans-serif); text-align: center; }

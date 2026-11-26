@@ -127,6 +127,13 @@
         };
         montarMenu();
         if (S.tokenCheckin && S.modo === "aluno" && history.replaceState) history.replaceState(null, "", "/app#/checkin");
+        // quem está devendo abre direto em Mensalidades, onde paga por Pix, cartão ou boleto
+        var entrada = !location.hash || /^#\/?$/.test(location.hash);
+        if (S.modo === "aluno" && entrada) {
+          return sb.rpc("meu_bloqueio").then(function (x) {
+            if (x.data && x.data.total_centavos > 0) location.hash = "#/financeiro"; else rotear();
+          }).catch(function () { rotear(); });
+        }
         rotear();
       });
     }).catch(falhou);
@@ -281,7 +288,7 @@
     tela.innerHTML = '<p class="carregando">Carregando...</p>';
     window.scrollTo(0, 0);
     Promise.resolve().then(function () { return VIEWS[r](); }).then(function () {
-      if (S.modo === "aluno" && ["inicio", "agenda", "checkin", "financeiro", "comunidade"].indexOf(r) >= 0) avisoBloqueio(r);
+      if (S.modo === "aluno" && ["inicio", "agenda", "checkin", "financeiro", "comunidade", "graduacao", "perfil", "notificacoes"].indexOf(r) >= 0) avisoBloqueio(r);
       if (r === MENUS[S.modo][0][0]) conviteApp();
     }).catch(falhou);
   }
@@ -436,7 +443,8 @@
       return sb.rpc("fazer_checkin", { p_token: String(t).trim().toLowerCase() }).then(function (x) {
         if (x.error) {
           var dica = /Nenhuma aula/.test(x.error.message) ? "<br><small style=\"color:var(--cinza)\">Confira o horário da sua turma na Agenda. Se a aula já começou, peça ao professor para marcar sua presença na chamada.</small>" : "";
-          return mostrar('<p style="margin:0"><span class="tag risco">Não registrado</span> ' + esc(x.error.message) + dica + "</p>");
+          var pagar = /mensalidade|bloquead|atraso/i.test(x.error.message) ? '<br><a class="btn-mini" href="#/financeiro" style="margin-top:8px">Pagar mensalidade</a>' : "";
+          return mostrar('<p style="margin:0"><span class="tag risco">Não registrado</span> ' + esc(x.error.message) + dica + pagar + "</p>");
         }
         mostrar('<h3 style="margin:0;font-family:var(--display);font-style:italic;text-transform:uppercase;font-size:28px">Check-in feito, guerreiro 🔥</h3><p style="color:var(--cinza);margin:6px 0 0">Presença registrada às ' + U.hora(x.data.checkin_em) + ". Bom treino!</p>");
       });
@@ -460,7 +468,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611262310";
+        sc.src = "/assets/vendor/jsqr.js?v=202611270010";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -3057,6 +3065,7 @@
   function avisoBloqueio(rota) {
     sb.rpc("meu_bloqueio").then(function (x) {
       var b = x.data; if (!b || !b.total_centavos) return;
+      var navPg = document.querySelector('#nav a[data-r="financeiro"]'); if (navPg) navPg.classList.add("tem-divida");
       var h1 = tela.querySelector("h1"); if (!h1 || tela.querySelector(".aviso-bloqueio")) return;
       var div = document.createElement("div");
       div.className = "aviso-bloqueio" + (b.bloqueado ? "" : " leve");
