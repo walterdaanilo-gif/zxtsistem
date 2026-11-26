@@ -17,8 +17,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,600;1,700;1,800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/style.css?v=202611240400">
-  <link rel="stylesheet" href="/assets/portal.css?v=202611240400">
+  <link rel="stylesheet" href="/assets/style.css?v=202611262130">
+  <link rel="stylesheet" href="/assets/portal.css?v=202611262130">
 </head>
 <body class="portal">
   <main class="auth">
@@ -64,7 +64,9 @@
         <div class="grupo" id="g-plano">
           <p>Plano e turmas</p>
           <div id="c-plano"><p class="carregando" style="padding:0">Carregando planos...</p></div>
-          <label class="check aluno-atual"><input type="checkbox" id="c-atual"> <span><b>Já treino na ZXT</b> (sou aluno atual). Não pago agora: a equipe confirma meu cadastro e minha situação.</span></label>
+          <p class="pp-titulo" style="margin:14px 0 6px">Você já treina na ZXT?</p>
+          <label class="check aluno-atual"><input type="radio" name="atual" id="c-atual-nao" value="nao"> <span><b>Não, sou aluno novo.</b> Depois do cadastro aparece a tela de pagamento (Pix, cartão ou boleto) e o acesso libera assim que pagar.</span></label>
+          <label class="check aluno-atual"><input type="radio" name="atual" id="c-atual" value="sim"> <span><b>Sim, já sou aluno.</b> Não pago agora: a equipe confirma meu cadastro e minha situação.</span></label>
         </div>
 
         <div class="grupo" id="g-prof" hidden>
@@ -108,10 +110,10 @@
     </div>
   </main>
 
-  <script src="/assets/vendor/supabase.min.js?v=202611240400"></script>
-  <script src="/assets/portal-base.js?v=202611240400"></script>
-  <script src="/assets/vendor/qrcode.js?v=202611240400"></script>
-  <script src="/assets/instalar.js?v=202611240400"></script>
-  <script src="/assets/entrar.js?v=202611240400"></script>
+  <script src="/assets/vendor/supabase.min.js?v=202611262130"></script>
+  <script src="/assets/portal-base.js?v=202611262130"></script>
+  <script src="/assets/vendor/qrcode.js?v=202611262130"></script>
+  <script src="/assets/instalar.js?v=202611262130"></script>
+  <script src="/assets/entrar.js?v=202611262130"></script>
 </body>
 </html>

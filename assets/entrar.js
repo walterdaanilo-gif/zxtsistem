@@ -62,6 +62,7 @@
     }
   });
   if (params.get("atual") === "1") { var ca = document.getElementById("c-atual"); if (ca) ca.checked = true; }
+  function jaTreina() { var r = document.querySelector('input[name="atual"]:checked'); return r ? r.value === "sim" : null; }
   if (params.get("tipo") === "professor") setTimeout(function () { var r = document.querySelector('input[name="tipo"][value="professor"]'); if (r) { r.checked = true; r.dispatchEvent(new Event("change", { bubbles: true })); } }, 0);
   function ehProfessor() { var r = document.querySelector('input[name="tipo"]:checked'); return r && r.value === "professor"; }
   function dadosDoProfessor() {
@@ -145,6 +146,7 @@
     } else {
       var erroPlano = picker ? picker.erro() : "aguarde os planos carregarem";
       if (erroPlano) falta.push(erroPlano.replace(/\.$/, "").toLowerCase());
+      if (jaTreina() === null) falta.push("se você já treina na ZXT (sim ou não)");
     }
     if (!d.emergNome || U.soDigitos(d.emergTel).length < 10) falta.push("contato de emergência");
     if (menor) {
@@ -180,7 +182,7 @@
           perfil.experiencia = dp.exp || null; perfil.modalidades_interesse = dp.mods;
         } else {
           perfil.tipo_cadastro = "aluno"; perfil.modalidades_interesse = picker.modalidadesSlugs();
-          perfil.aluno_existente = !!(document.getElementById("c-atual") || {}).checked;
+          perfil.aluno_existente = jaTreina() === true;
           perfil.plano_escolhido_id = d.escolha.plano; perfil.turmas_escolhidas = d.escolha.turmas;
         }
         if (menor) {

@@ -453,7 +453,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611240400";
+        sc.src = "/assets/vendor/jsqr.js?v=202611262130";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -1044,6 +1044,38 @@
     });
   };
 
+
+  // ---- pagamento do aluno novo (equipe): situação no Asaas e cobrança pelo WhatsApp
+  var NOME_FORMA_PG = { PIX: "Pix", CREDIT_CARD: "Cartão de crédito", BOLETO: "Boleto" };
+  function blocoPagamentoNovo(p, plano) {
+    if (p.aluno_existente) return '<div class="cartao" style="margin:0 0 10px;background:#0d0d0d"><p style="margin:0;font-size:14px"><span class="tag info">Aluno atual</span> Sem cobrança no cadastro: confirme a situação (em dia ou atrasado) ao aprovar.</p></div>';
+    var valor = plano ? U.reais(plano.valor_centavos) + (plano.periodicidade === "mensal" ? "/mês" : "/" + plano.periodicidade) : "sem plano";
+    var linha = p.pagamento_iniciado_em
+      ? '<span class="tag atencao">💳 Pagamento gerado</span> ' + esc(NOME_FORMA_PG[p.pagamento_forma] || p.pagamento_forma || "") + " em " + U.data(p.pagamento_iniciado_em) + ". Aguardando o Asaas confirmar: o acesso libera sozinho."
+      : '<span class="tag risco">⚠ Não gerou o pagamento</span> O aluno ainda não escolheu Pix, cartão ou boleto. O acesso só libera depois que pagar.';
+    return '<div class="cartao" style="margin:0 0 10px;background:#0d0d0d"><p style="margin:0 0 4px;font-size:13px;color:var(--cinza)">Pagamento do cadastro · ' + esc(plano ? plano.nome : "") + " " + valor + "</p>" +
+      '<p style="margin:0 0 8px;font-size:14px">' + linha + "</p>" +
+      '<div class="busca" style="margin:0"><button class="btn-mini claro" data-conferir-pg="' + p.id + '" type="button">Conferir no Asaas</button>' +
+      (p.whatsapp ? '<a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(p.whatsapp, "Oi, " + primeiroNome(p.nome) + "! Falta só o pagamento do seu plano" + (plano ? " " + plano.nome + " (" + valor + ")" : "") +
+        " para liberar seu acesso à ZXT. Entre em " + location.origin + "/entrar com seu e-mail e senha e escolha Pix, cartão ou boleto. Qualquer dúvida, é só chamar 🥊") + '">Cobrar no WhatsApp</a>' : "") + "</div></div>";
+  }
+  function conferirPagamentoAluno(alunoId, nome) {
+    return sb.auth.getSession().then(function (se) {
+      return fetch("/api/pagamento-aluno", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + se.data.session.access_token }, body: JSON.stringify({ aluno_id: alunoId }) });
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (x) {
+      if (!x.ok) return modal("Pagamento de " + nome, '<p style="color:var(--cinza)">' + esc(x.j.erro || "Não deu para consultar o Asaas agora.") + "</p>");
+      var j = x.j, tagS = { pago: "ok", aguardando: "atencao", vencida: "risco", estornada: "neutro" };
+      var corpo = !j.iniciado
+        ? '<p style="color:var(--cinza)">' + (j.aluno_existente ? "Aluno atual: não há cobrança no Asaas." : "Esse aluno ainda não gerou o pagamento no Asaas.") + "</p>"
+        : '<div class="lista">' + (j.cobrancas || []).map(function (c) {
+          return '<div class="item"><div><h3>' + U.reais(Math.round(c.valor * 100)) + " · " + esc(c.forma || "") + "</h3><p>Vence " + U.data(c.vencimento) + (c.pago_em ? " · pago em " + U.data(c.pago_em) : "") + "</p></div>" +
+            '<div class="acoes"><span class="tag ' + (tagS[c.status] || "neutro") + '">' + esc(c.status) + "</span>" + (c.link ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + esc(c.link) + '">Abrir</a>' : "") + "</div></div>";
+        }).join("") + "</div>" + ((j.cobrancas || []).some(function (c) { return c.status === "pago"; }) && j.status === "pendente"
+          ? '<p style="color:#f2a20c;font-size:14px">Já tem pagamento confirmado no Asaas, mas o cadastro ainda está pendente. Aprove o cadastro.</p>' : "");
+      modal("Pagamento de " + nome, corpo, [["Fechar", null, "claro"]]);
+    }).catch(function () { U.toast("Sem conexão com o servidor.", "erro"); });
+  }
+
   VIEWS.aprovacoes = function () {
     return Promise.all([
       S.modo === "professor" ? pendentesDoProfessor() : sb.from("profiles").select("*").eq("status", "pendente").neq("tipo_cadastro", "professor").order("created_at").then(chk),
@@ -1067,6 +1099,7 @@
             '<p style="margin:0 0 6px;font-size:14px">Escolheu: <b>' + esc(nomePlano[p.plano_escolhido_id] || "sem plano escolhido") + "</b>" +
               ((p.turmas_escolhidas || []).length ? " · " + esc(p.turmas_escolhidas.map(function (t) { return nomeTurma[t] || "turma removida"; }).join(" + ")) : "") + "</p>" +
             (p.saude_obs ? '<p style="margin:0 0 6px;font-size:14px;color:#f2a20c">⚠ ' + esc(p.saude_obs) + "</p>" : "") +
+            blocoPagamentoNovo(p, planos.filter(function (x) { return x.id === p.plano_escolhido_id; })[0]) +
             (p.responsavel_nome ? '<p style="margin:0 0 6px;font-size:14px">Responsável: ' + esc(p.responsavel_nome) + " · " + esc(p.responsavel_whatsapp || "") + "</p>" : "") +
             '<p style="margin:0 0 12px;font-size:13px;color:var(--cinza-2)">Termo aceito: ' + (p.aceite_termo_em ? U.data(p.aceite_termo_em) : "não") + " · Privacidade: " + (p.aceite_privacidade_em ? U.data(p.aceite_privacidade_em) : "não") + "</p>" +
             '<div class="busca" style="margin:0"><button class="btn-mini verde" data-aprovar="' + p.id + '">Aprovar</button><button class="btn-mini claro" data-recusar="' + p.id + '">Recusar</button>' +
@@ -1074,6 +1107,8 @@
         }).join("") + "</div>" : '<div class="vazio-box">Nenhum cadastro aguardando 🔥</div>');
       $("#cp-atuais").onclick = function () { navigator.clipboard.writeText(linkAtuais).then(function () { U.toast("Link copiado"); }); };
       tela.onclick = function (e) {
+        var cf = e.target.closest("[data-conferir-pg]");
+        if (cf) { var pe = ps.filter(function (x) { return x.id === cf.getAttribute("data-conferir-pg"); })[0] || {}; return conferirPagamentoAluno(cf.getAttribute("data-conferir-pg"), primeiroNome(pe.nome || "aluno")); }
         var a = e.target.closest("[data-aprovar]"), rc = e.target.closest("[data-recusar]");
         if (a) {
           var id = a.getAttribute("data-aprovar");
@@ -1117,7 +1152,52 @@
     });
   };
 
+  function pagamentosPorAluno() {
+    var f = { st: (location.hash.match(/st=(\w+)/) || [])[1] || "", q: decodeURIComponent((location.hash.match(/[?&]q=([^&]*)/) || [])[1] || "") };
+    return Promise.all([
+      sb.from("assinaturas").select("id,aluno_id,dia_vencimento,inicio,provider_subscription_id, planos(nome,valor_centavos,periodicidade), profiles!assinaturas_aluno_id_fkey(nome,whatsapp,status,pagamento_forma)").eq("ativa", true).then(chk),
+      sb.from("cobrancas").select("aluno_id,status,vencimento,valor_final_centavos,link_pagamento,pago_em,forma_pagamento,provider_id").not("aluno_id", "is", null).order("vencimento", { ascending: false }).limit(1500).then(chk)
+    ]).then(function (r) {
+      var ass = r[0].filter(function (a) { return a.profiles && a.profiles.status === "ativo"; }), cs = r[1];
+      var porAluno = {}; cs.forEach(function (c) { (porAluno[c.aluno_id] = porAluno[c.aluno_id] || []).push(c); });
+      var hoje = U.hojeISO();
+      var linhas = ass.map(function (a) {
+        var lista = porAluno[a.aluno_id] || [], abertas = lista.filter(function (c) { return c.status === "em_aberto" || c.status === "atrasado"; });
+        var atras = abertas.filter(function (c) { return c.status === "atrasado" || c.vencimento < hoje; });
+        var ult = lista.filter(function (c) { return c.status === "pago"; })[0];
+        var sit = atras.length ? "atrasado" : abertas.length ? "aberto" : ult ? "emdia" : "sem";
+        return { a: a, abertas: abertas, ult: ult, sit: sit, venc: abertas.length ? abertas[abertas.length - 1].vencimento : null, link: (abertas[abertas.length - 1] || {}).link_pagamento || null,
+          total: abertas.reduce(function (t, c) { return t + (c.valor_final_centavos || 0); }, 0) };
+      }).sort(function (x, y) { var o = { atrasado: 0, aberto: 1, sem: 2, emdia: 3 }; return o[x.sit] - o[y.sit] || (x.a.profiles.nome || "").localeCompare(y.a.profiles.nome || "", "pt-BR"); });
+      var cont = { atrasado: 0, aberto: 0, emdia: 0, sem: 0 }; linhas.forEach(function (l) { cont[l.sit]++; });
+      var q = U.semAcento(f.q).toLowerCase();
+      var vis = linhas.filter(function (l) { return (!f.st || l.sit === f.st) && (!q || U.semAcento(l.a.profiles.nome || "").toLowerCase().indexOf(q) >= 0); });
+      var TAG = { atrasado: '<span class="tag risco">Atrasado</span>', aberto: '<span class="tag atencao">Em aberto</span>', emdia: '<span class="tag ok">Em dia</span>', sem: '<span class="tag neutro">Sem cobrança ainda</span>' };
+      tela.innerHTML = "<h1><em>Financeiro</em></h1>" + abasFinanceiro("alunos") +
+        '<p class="sub">A situação de cada aluno ativo. Quem paga pelo Asaas atualiza sozinho (Pix, cartão e boleto); quem paga na recepção você dá a baixa.</p>' +
+        '<div class="kpis"><div class="kpi alerta"><b>' + cont.atrasado + "</b><span>Atrasados</span></div><div class=\"kpi alerta\"><b>" + cont.aberto + "</b><span>Em aberto</span></div>" +
+        '<div class="kpi"><b>' + cont.emdia + "</b><span>Em dia</span></div><div class=\"kpi\"><b>" + cont.sem + "</b><span>Sem cobrança ainda</span></div></div>" +
+        '<div class="ev-filtros"><input id="pa-q" placeholder="Buscar aluno" value="' + esc(f.q) + '"><select class="sel" id="pa-st"><option value="">Todos</option>' +
+        [["atrasado", "Atrasados"], ["aberto", "Em aberto"], ["emdia", "Em dia"], ["sem", "Sem cobrança ainda"]].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === f.st ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></div>" +
+        (vis.length ? '<div class="lista">' + vis.map(function (l) {
+          var pr = l.a.profiles, pl = l.a.planos || {}, asaasTxt = l.a.provider_subscription_id ? "Asaas" + (pr.pagamento_forma ? " · " + (NOME_FORMA_PG[pr.pagamento_forma] || pr.pagamento_forma) : "") : "Recepção (baixa manual)";
+          return '<div class="item' + (l.sit === "atrasado" ? " destaque" : "") + '"><div><h3>' + esc(pr.nome) + "</h3><p>" + esc(pl.nome || "") + " " + (pl.valor_centavos != null ? U.reais(pl.valor_centavos) : "") + " · vence dia " + l.a.dia_vencimento + " · " + esc(asaasTxt) +
+            (l.sit === "emdia" && l.ult && l.ult.pago_em ? " · último pagamento " + U.data(l.ult.pago_em) : "") + (l.sit === "sem" ? " · 1ª mensalidade a partir de " + U.data(l.a.inicio) : "") +
+            (l.abertas.length ? " · " + U.reais(l.total) + " em aberto, vence " + U.data(l.venc) : "") + '</p></div><div class="acoes">' + TAG[l.sit] +
+            (l.link ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + esc(l.link) + '">Abrir cobrança</a>' : "") +
+            (l.abertas.length && pr.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(pr.whatsapp, "Oi, " + primeiroNome(pr.nome) + "! Passando pra lembrar da mensalidade da ZXT de " + U.reais(l.total) + (l.link ? ". Pague por aqui: " + l.link : ". Pague pelo portal: " + location.origin + "/app")) + '">Cobrar</a>' : "") + "</div></div>";
+        }).join("") + "</div>" : '<div class="vazio-box">Nenhum aluno nesse filtro.</div>');
+      function ir() { location.hash = "#/cobrancas?v=alunos" + ($("#pa-st").value ? "&st=" + $("#pa-st").value : "") + ($("#pa-q").value.trim() ? "&q=" + encodeURIComponent($("#pa-q").value.trim()) : ""); }
+      $("#pa-st").onchange = ir;
+      var tq; $("#pa-q").oninput = function () { clearTimeout(tq); tq = setTimeout(ir, 400); };
+    });
+  }
+  function abasFinanceiro(qual) {
+    return '<div class="filtros"><a class="filtro" href="#/cobrancas" aria-pressed="' + (qual === "cobrancas") + '">Cobranças</a><a class="filtro" href="#/cobrancas?v=alunos" aria-pressed="' + (qual === "alunos") + '">Por aluno</a></div>';
+  }
+
   VIEWS.cobrancas = function () {
+    if (/[?&]v=alunos/.test(location.hash)) return pagamentosPorAluno();
     var filtro = (location.hash.match(/st=(\w+)/) || [])[1] || "abertas";
     return Promise.all([
       sb.from("planos").select("*, plano_modalidades(modalidade_id, modalidades(nome))").order("valor_centavos", { ascending: false }).then(chk),
@@ -1127,7 +1207,7 @@
       function modsDo(p) { return (p.plano_modalidades || []).map(function (x) { return x.modalidades.nome; }); }
       var lista = cs.filter(function (c) { return filtro === "todas" || (filtro === "abertas" ? (c.status === "em_aberto" || c.status === "atrasado") : c.status === filtro); });
       var ehAdmin = S.modo === "admin";
-      tela.innerHTML = "<h1><em>Financeiro</em></h1><p class=\"sub\">" + (ehAdmin ? "Planos, mensalidades e baixa manual." : "Mensalidades dos alunos da sua turma: dê baixa no que foi pago na recepção e cobre quem está em aberto.") + "</p>" +
+      tela.innerHTML = "<h1><em>Financeiro</em></h1>" + abasFinanceiro("cobrancas") + "<p class=\"sub\">" + (ehAdmin ? "Planos, mensalidades e baixa manual." : "Mensalidades dos alunos da sua turma: dê baixa no que foi pago na recepção e cobre quem está em aberto.") + "</p>" +
         (!ehAdmin ? "" : "<h2>Planos</h2>" + (planos.length ? '<div class="lista">' + planos.map(function (p) {
           var ms = modsDo(p);
           var regraT = p.turmas_livres ? "todas as turmas" : p.max_turmas ? p.max_turmas + (p.max_turmas > 1 ? " turmas" : " turma") : "turmas definidas pela equipe";
