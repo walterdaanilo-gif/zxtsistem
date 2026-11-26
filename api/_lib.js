@@ -22,6 +22,12 @@ async function asaas(caminho, opcoes = {}) {
   let dados; try { dados = txt ? JSON.parse(txt) : {}; } catch (e) { dados = { bruto: txt }; }
   if (!r.ok) {
     const msg = (dados.errors && dados.errors.map(e => e.description).join(' ')) || ('Asaas respondeu ' + r.status);
+    // chave do Asaas recusada: o problema é da configuração (Vercel), não do aluno. Mensagem clara para ele e aviso no log.
+    if (r.status === 401 || /chave de api/i.test(msg)) {
+      console.error('ASAAS: chave de API recusada (' + msg + '). Gere uma nova em Integrações no Asaas e atualize ASAAS_API_KEY na Vercel.');
+      const erro = new Error('O pagamento online está indisponível no momento. Avise a recepção: ela confirma seu pagamento direto no sistema.');
+      erro.status = 503; erro.codigo = 'asaas_chave'; throw erro;
+    }
     const erro = new Error(msg); erro.status = r.status; throw erro;
   }
   return dados;
