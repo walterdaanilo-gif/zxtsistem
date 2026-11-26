@@ -460,7 +460,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611262230";
+        sc.src = "/assets/vendor/jsqr.js?v=202611262310";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -941,6 +941,7 @@
         $("#a-lista").innerHTML = l.length ? l.map(function (p) {
           return '<div class="item"><div><h3>' + esc(p.nome || p.email) + "</h3><p>" + esc(nomesMods(p.modalidades_interesse)) + (p.saude_obs ? " · ⚠ saúde" : "") + "</p></div>" +
             '<div class="acoes">' + tagStatus(p.status) + ' <button class="btn-mini claro" data-ficha="' + p.id + '">Ficha</button>' +
+            (p.status === "ativo" && p.tipo_cadastro !== "professor" ? ' <button class="btn-mini" data-cobrar-sis="' + p.id + '" data-nome="' + esc(primeiroNome(p.nome)) + '" type="button">Cobrar</button>' : "") +
             (p.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(p.whatsapp, "Olá, " + primeiroNome(p.nome) + "! Aqui é da ZXT 🥊") + '">WhatsApp</a>' : "") + "</div></div>";
         }).join("") : '<div class="vazio-box">Ninguém encontrado.</div>';
       }
@@ -1208,7 +1209,7 @@
             (l.sit === "emdia" && l.ult && l.ult.pago_em ? " · último pagamento " + U.data(l.ult.pago_em) : "") + (l.sit === "sem" ? " · 1ª mensalidade a partir de " + U.data(l.a.inicio) : "") +
             (l.abertas.length ? " · " + U.reais(l.total) + " em aberto, vence " + U.data(l.venc) : "") + '</p></div><div class="acoes">' + TAG[l.sit] +
             (l.link ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + esc(l.link) + '">Abrir cobrança</a>' : "") +
-            (l.abertas.length ? ' <button class="btn-mini" data-cobrar-sis="' + l.a.aluno_id + '" data-nome="' + esc(primeiroNome(pr.nome)) + '" type="button">Cobrar pelo sistema</button>' : "") +
+            ' <button class="btn-mini" data-cobrar-sis="' + l.a.aluno_id + '" data-nome="' + esc(primeiroNome(pr.nome)) + '" type="button">Cobrar pelo sistema</button>' +
             (l.abertas.length && pr.whatsapp ? ' <a class="btn-mini claro" target="_blank" rel="noopener" href="' + U.wa(pr.whatsapp, "Oi, " + primeiroNome(pr.nome) + "! Passando pra lembrar da mensalidade da ZXT de " + U.reais(l.total) + (l.link ? ". Pague por aqui: " + l.link : ". Pague pelo portal: " + location.origin + "/app")) + '">WhatsApp</a>' : "") + "</div></div>";
         }).join("") + "</div>" : '<div class="vazio-box">Nenhum aluno nesse filtro.</div>');
       function ir() { location.hash = "#/cobrancas?v=alunos" + ($("#pa-st").value ? "&st=" + $("#pa-st").value : "") + ($("#pa-q").value.trim() ? "&q=" + encodeURIComponent($("#pa-q").value.trim()) : ""); }
