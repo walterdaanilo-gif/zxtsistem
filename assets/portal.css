@@ -397,3 +397,5 @@ a.filtro { text-decoration: none; display: inline-block; }
 /* aba Mensalidades com pagamento em atraso */
 #nav a.tem-divida { position: relative; }
 #nav a.tem-divida::after { content: "!"; position: absolute; top: 2px; right: 8px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #e30613; color: #fff; font: 700 11px/16px var(--display, sans-serif); text-align: center; }
+
+.cert-sub { position: absolute; left: 0; right: 0; top: 17.75cqw; text-align: center; font: 600 2.05cqw/1 Montserrat, Arial, sans-serif; color: #000; }

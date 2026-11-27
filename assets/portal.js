@@ -468,7 +468,7 @@
       if (window.jsQR) return Promise.resolve();
       return new Promise(function (ok, erro) {
         var sc = document.createElement("script");
-        sc.src = "/assets/vendor/jsqr.js?v=202611270010";
+        sc.src = "/assets/vendor/jsqr.js?v=202611271900";
         sc.onload = ok; sc.onerror = function () { erro(new Error("leitor")); };
         document.head.appendChild(sc);
       });
@@ -2185,32 +2185,42 @@
     var d = String(c || "").replace(/\D/g, "");
     return d.length === 11 ? d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9) : String(c || "").trim();
   }
-  function certPartes(it) {
+  // Branco (1º Khan) não é graduação oficial: sai o certificado de PARTICIPAÇÃO no aulão. As demais cores, o de graduação.
+  function modeloDe(it) { return /^branco$/i.test(String(it.grau || "").trim()) ? "participacao" : "graduacao"; }
+  function certPartes(it, ctx) {
     var maius = function (t) { return String(t || "").trim().toLocaleUpperCase("pt-BR"); };
     var trat = it.trat === "o Sr." || it.trat === "a Sra." ? it.trat : "o(a) Sr(a).";
-    return { antes: "O presidente da Zulu Xtreme Team, Mestre Paulo Cesar Da Costa, no uso de suas atribuições e funções vem por meio deste documento, diplomar " +
-        trat + " " + maius(it.nome) + ", registrado ao CPF:" + cpfFmt(it.cpf) + ", ao ",
+    var inicio = "O presidente da Zulu Xtreme Team, Mestre Paulo Cesar Da Costa, no uso de suas atribuições e funções ";
+    if (modeloDe(it) === "participacao") {
+      return { modelo: "participacao", sub: "DE PARTICIPAÇÃO",
+        antes: inicio + "certifica que " + trat + " " + maius(it.nome) + ", registrado ao CPF:" + cpfFmt(it.cpf) + ", participou do ",
+        negrito: "AULÃO DE GRADUAÇÃO " + ctx.ano, depois: " de Muay Thai" + (ctx.data ? ", realizado em " + ctx.data : "") + "." };
+    }
+    return { modelo: "graduacao", sub: "DE GRADUAÇÃO",
+      antes: inicio + "vem por meio deste documento, diplomar " + trat + " " + maius(it.nome) + ", registrado ao CPF:" + cpfFmt(it.cpf) + ", ao ",
       negrito: "GRAU " + maius(it.grau), depois: ". Tendo atingido o nível técnico necessário para esta graduação." };
   }
-  function certHtml(it, ano) {
-    var t = certPartes(it);
-    return '<div class="cert"><img src="/assets/certificado-modelo.png" alt="">' +
-      '<div class="cert-ano">' + esc(ano) + "</div>" +
+  function certHtml(it, ctx) {
+    var t = certPartes(it, ctx), part = t.modelo === "participacao";
+    return '<div class="cert"><img src="/assets/' + (part ? "certificado-modelo-participacao.png" : "certificado-modelo.png") + '" alt="">' +
+      (part ? '<div class="cert-sub">' + esc(t.sub) + "</div>" : '<div class="cert-ano">' + esc(ctx.ano) + "</div>") +
       '<p class="cert-txt">' + esc(t.antes) + "<b>" + esc(t.negrito) + "</b>" + esc(t.depois) + "</p></div>";
   }
   // imagem PNG do certificado (2000 x 1414), mesma posição e fontes da impressão
-  function certImagem(it, ano) {
+  function certImagem(it, ctx) {
     var fontes = ["400 42px Roboto", "700 42px Roboto", "600 41px Montserrat"];
     return Promise.all(fontes.map(function (f) { return document.fonts.load(f); })).catch(function () {}).then(function () {
       return new Promise(function (ok, erro) {
+        var t = certPartes(it, ctx), part = t.modelo === "participacao";
         var img = new Image();
         img.onerror = function () { erro(new Error("Não deu para carregar o modelo do certificado.")); };
         img.onload = function () {
           var c = document.createElement("canvas"); c.width = 2000; c.height = 1414;
           var x = c.getContext("2d"); x.drawImage(img, 0, 0, 2000, 1414);
           x.fillStyle = "#000"; x.textBaseline = "alphabetic";
-          x.font = "600 41px Montserrat, Arial, sans-serif"; x.fillText(String(ano), 1131, 389.5);
-          var t = certPartes(it), FS = 41.8, LH = 62.6, MAXW = 1600;
+          x.font = "600 41px Montserrat, Arial, sans-serif";
+          if (part) { x.textAlign = "center"; x.fillText(t.sub, 1000, 389.5); x.textAlign = "left"; } else x.fillText(String(ctx.ano), 1131, 389.5);
+          var FS = 41.8, LH = 62.6, MAXW = 1600;
           var fonte = function (b) { return (b ? "700 " : "400 ") + FS + "px Roboto, Arial, sans-serif"; };
           var palavras = [], colar = false;
           [{ t: t.antes, b: false }, { t: t.negrito, b: true }, { t: t.depois, b: false }].forEach(function (r) {
@@ -2239,22 +2249,22 @@
           });
           c.toBlob(function (b) { b ? ok(b) : erro(new Error("Não deu para gerar a imagem.")); }, "image/png");
         };
-        img.src = "/assets/certificado-modelo.png";
+        img.src = "/assets/" + (part ? "certificado-modelo-participacao.png" : "certificado-modelo.png");
       });
     });
   }
-  function certBaixar(it, ano) {
-    return certImagem(it, ano).then(function (blob) {
+  function certBaixar(it, ctx) {
+    return certImagem(it, ctx).then(function (blob) {
       var a = document.createElement("a"), url = URL.createObjectURL(blob);
-      a.href = url; a.download = "certificado-" + U.semAcento(String(it.nome || "aluno")).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".png";
+      a.href = url; a.download = (modeloDe(it) === "participacao" ? "certificado-participacao-" : "certificado-") + U.semAcento(String(it.nome || "aluno")).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".png";
       document.body.appendChild(a); a.click(); a.parentNode.removeChild(a); setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
     });
   }
   // abre a impressão com uma página A4 paisagem por certificado
-  function certImprimirLote(lista, ano) {
+  function certImprimirLote(lista, ctx) {
     var velho = $("#cert-print"); if (velho) velho.parentNode.removeChild(velho);
     var box = document.createElement("div"); box.id = "cert-print";
-    box.innerHTML = lista.map(function (it) { return '<section class="cert-pag">' + certHtml(it, ano) + "</section>"; }).join("");
+    box.innerHTML = lista.map(function (it) { return '<section class="cert-pag">' + certHtml(it, ctx) + "</section>"; }).join("");
     document.body.appendChild(box);
     return Promise.all(U.$$("img", box).map(function (im) { return im.complete ? Promise.resolve() : new Promise(function (ok) { im.onload = im.onerror = ok; }); }))
       .then(function () { return document.fonts && document.fonts.ready; })
@@ -2268,11 +2278,11 @@
   function abrirCertificadoAluno(idIns) {
     return sb.rpc("meu_certificado", { p_ins: idIns }).then(function (r) {
       if (r.error) { U.erro(r.error); return; }
-      var d = r.data || {}, it = { nome: d.nome, cpf: d.cpf, grau: d.grau, trat: d.trat };
-      modal("Seu certificado 🎓", '<div style="margin:0 -4px">' + certHtml(it, d.ano) + '</div><p style="color:var(--cinza);font-size:13px;margin:8px 0 0">Confira seu nome e CPF. Se algo estiver errado, fale com seu professor.</p>',
+      var d = r.data || {}, it = { nome: d.nome, cpf: d.cpf, grau: d.grau, trat: d.trat }, ctx = { ano: d.ano, data: d.data };
+      modal(modeloDe(it) === "participacao" ? "Seu certificado de participação 🎓" : "Seu certificado 🎓", '<div style="margin:0 -4px">' + certHtml(it, ctx) + '</div><p style="color:var(--cinza);font-size:13px;margin:8px 0 0">Confira seu nome e CPF. Se algo estiver errado, fale com seu professor.</p>',
         [["Fechar", null, "claro"],
-         ["Baixar imagem", function () { return certBaixar(it, d.ano).then(function () { return false; }).catch(function (e) { U.erro(e); return false; }); }, "verde"],
-         ["Imprimir / PDF", function () { certImprimirLote([it], d.ano); return false; }, "claro"]]);
+         ["Baixar imagem", function () { return certBaixar(it, ctx).then(function () { return false; }).catch(function (e) { U.erro(e); return false; }); }, "verde"],
+         ["Imprimir / PDF", function () { certImprimirLote([it], ctx); return false; }, "claro"]]);
     });
   }
   function cartaoExame() {
@@ -2327,6 +2337,8 @@
         return;
       }
       var ano = ev.inicio ? new Date(ev.inicio).toLocaleDateString("pt-BR", { year: "numeric", timeZone: "America/Fortaleza" }) : String(new Date().getFullYear());
+      var dataTxt = ev.inicio ? new Date(ev.inicio).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric", timeZone: "America/Fortaleza" }) : "";
+      var ctx = { ano: ano, data: dataTxt };
       var extras = ((ev.campos || {}).extras || []);
       var exProf = extras.filter(function (x) { return x.tipo === "opcoes" && /professor/i.test(x.rotulo); })[0];
       var limpo = function (n) { return String(n || "").replace(/\(.*?\)/g, "").replace(/\s+/g, " ").trim(); };
@@ -2382,7 +2394,7 @@
           opcoesGrau.map(function (g) { return "<option" + (g === it.grau ? " selected" : "") + ' value="' + esc(g) + '">' + esc(rotuloGrau(g)) + "</option>"; }).join("") + "</select>" +
           '<select class="sel" data-k="trat" aria-label="Tratamento"><option value="">Sr(a).</option><option value="o Sr."' + (it.trat === "o Sr." ? " selected" : "") + '>Sr.</option><option value="a Sra."' + (it.trat === "a Sra." ? " selected" : "") + ">Sra.</option></select></div>" +
           '<div class="cert-tags">' + (it.aprovado ? '<span class="tag ok">Aprovado</span>' : "") + (it.presente ? '<span class="tag info">Presente</span>' : "") +
-          (it.status === "pago" || it.status === "isento" ? "" : '<span class="tag atencao">Pgto pendente</span>') + (it.sem ? '<span class="tag neutro">Só exame</span>' : "") +
+          (it.status === "pago" || it.status === "isento" ? "" : '<span class="tag atencao">Pgto pendente</span>') + (it.sem ? '<span class="tag neutro">Só exame</span>' : "") + (modeloDe(it) === "participacao" ? '<span class="tag info">Participação</span>' : "") +
           (cpfOk ? "" : '<span class="tag atencao">CPF a conferir</span>') + "</div></div>" +
           '<button class="btn-mini claro" data-prev type="button">Prévia</button></div>';
       }
@@ -2400,7 +2412,7 @@
         var it = porId[id] || visiveis()[0] || itens[0];
         if (!it) { $("#cert-prev").innerHTML = ""; return; }
         atual = it.id;
-        $("#cert-prev").innerHTML = certHtml(it, ano);
+        $("#cert-prev").innerHTML = certHtml(it, ctx);
         $("#cert-prev-nome").textContent = "Prévia: " + it.nome;
         U.$$(".cert-lin").forEach(function (l) { l.classList.toggle("ativa", l.getAttribute("data-id") === atual); });
       }
@@ -2494,7 +2506,7 @@
         var semTrat = sel.filter(function (it) { return !it.trat; }).length, cpfRuim = sel.filter(function (it) { return U.soDigitos(it.cpf).length !== 11; });
         if (semTrat) avisos.push(semTrat + " sem Sr./Sra. definido (vai sair \"o(a) Sr(a).\")");
         if (cpfRuim.length) avisos.push("CPF a conferir: " + cpfRuim.slice(0, 4).map(function (it) { return esc(it.nome); }).join(", ") + (cpfRuim.length > 4 ? "..." : ""));
-        function imprimir() { certImprimirLote(sel, ano); }
+        function imprimir() { certImprimirLote(sel, ctx); }
         if (!avisos.length) return imprimir();
         modal("Conferir antes de imprimir", "<ul style=\"color:var(--cinza);padding-left:18px\">" + avisos.map(function (a) { return "<li>" + a + "</li>"; }).join("") + "</ul>",
           [["Voltar e ajustar", null, "claro"], ["Imprimir assim mesmo", function () { imprimir(); }, "verde"]]);
